@@ -66,6 +66,16 @@ def qsub_process(name, output_dir, bam, analysis_id, config):
     log_path = output_dir + "/log/" + name + ".log"
     result_path = output_dir + "/result/" + name + ".txt"
     
+    write_log(log_path, "w", name + ": Subprocess has been started, with script " + script_path, True, False)
+    
+    if os.path.exists(bam) == False:
+        write_log(log_path, "a", name + "[%s] bam file is not exists.: %s" % (analysis_id, bam), True, True)
+        f = open(result_path, "w")
+        f.write("%s\n-1\n-1" % analysis_id)
+        f.close()
+        write_log(log_path, "a", name + ": Subprocess has been finished: " + str(return_val), True, True)
+        return 0
+
     cmd = cmd_format.format(samtools = config.get('TOOLS', 'samtools'), 
                 bam = bam, analysis_id = analysis_id, \
                 out = result_path, log = output_dir + "/log")
@@ -75,7 +85,6 @@ def qsub_process(name, output_dir, bam, analysis_id, config):
     f_sh.close()
     os.chmod(script_path, 0750)
 
-    write_log(log_path, "w", name + ": Subprocess has been started, with script " + script_path, True, False)
 
     s = drmaa.Session()
 

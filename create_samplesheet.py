@@ -18,13 +18,6 @@ import argparse
 
 skip_template = "[analysis_id = {id}] is skipped, because of {reason}."
 
-
-sys.argv = ["C:\\cygwin64\\home\\okada\\svn\\trunk\\genomon_toolkit\\create_samplesheet.py",
-            "C:\\cygwin64\\home\\okada\\tmp\\TCGA_DNA_all_summary_3.csv",
-            "C:\\cygwin64\\home\\okada\\tmp\\TCGA_DNA_all_summary_3.tsv",
-            "C:\\cygwin64\\home\\okada\\tmp\\"]
-
-
 def main():
     name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
     
@@ -144,9 +137,13 @@ def main():
                     continue
                 if len(rst.shape) > 1:
                     rst = rst.iloc[0]
-    
+
+                if (rst["single_lines"] == -1) and (rst["total_lines"] == -1):
+                    print (skip_templete.format(id = one.iloc[j]["analysis_id"], reason = "find result -1 in bamcheck file."))
+                    continue
+
                 if float(rst["single_lines"])/float(rst["total_lines"]) > 0.2:
-                    print ("[analysis_id = {id}] number of single read id over the threshold.".format(id = one.iloc[j]["analysis_id"]))
+                    print (skip_templete.format(id = one.iloc[j]["analysis_id"], reason = "number of single read id over the threshold."))
                     continue
             
             sample_type = one.iloc[j]["sample_type_name"]
@@ -328,6 +325,7 @@ def append_list(li, data, cfg, tumor):
             return li.append(data)
         else:
             print (skip_template.format(id = data["analysis_id"], reason = "'sample type duplicate'"))
+            return li
             
     if pri_data < pri_li:
         li = pandas.DataFrame([])

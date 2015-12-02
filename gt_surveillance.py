@@ -22,6 +22,7 @@ import drmaa
 import ConfigParser
 import argparse
 import subprocess
+import re
 
 cmd_format = """
 #!/bin/bash
@@ -131,9 +132,9 @@ def qsub_process(name, output_dir, key, manifest, config):
     return return_val
     
 def xml_splitter(name, output_dir, manifest, config):
-
+    prefix = os.path.splitext(os.path.basename(manifest))[0]
     cmd = splitter_format.format(xmlsplitter = config.get('TOOLS', 'xmlsplitter'), \
-                        output_prefix = output_dir + "/manifests/manifest", manifest = manifest)
+                        output_prefix = output_dir + "/manifests/" + prefix, manifest = manifest)
                         
     script_path = output_dir + "/scripts/" + name + ".sh"    
 
@@ -145,12 +146,14 @@ def xml_splitter(name, output_dir, manifest, config):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout_data, stderr_data = p.communicate()
 
+    li = []
     if p.returncode == 0:
         print "xml_splitter finish: %s" % (stdout_data)
+        li = glob.glob(output_dir + "/manifests/" + prefix + "*")
     else:
         print "xml_splitter error!: %s" % (stderr_data)
 
-    return p.returncode
+    return li
     
 def main():
     name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
@@ -163,6 +166,7 @@ def main():
     parser.add_argument('key', help = "key file download from TCGA", type = str)
     parser.add_argument('manifest', help = "manifest file downloaded from TCGA", type = str)
     parser.add_argument("--config_file", help = "config file", type = str, default = "")
+    parser.add_argument("--ignore_list", help = "ignore analysis_id list file", type = str, default = "")
     args = parser.parse_args()
     
     output_dir = os.path.abspath(args.output_dir)
@@ -187,11 +191,7 @@ def main():
         os.makedirs(output_dir + "/data")
     if (os.path.exists(output_dir + "/scripts") == False):
         os.makedirs(output_dir + "/scripts")
-    if (os.path.exists(output_dir + "/manifests") == True):
-        files = glob.glob(output_dir + "/manifests/*")
-        for i in files:
-            os.remove(i)
-    else:
+    if (os.path.exists(output_dir + "/manifests") == False):
         os.makedirs(output_dir + "/manifests")
         
     now = datetime.datetime.now()
@@ -203,19 +203,42 @@ def main():
     # split manifest
     splitter_name = "xml_splitter{0:0>4d}{1:0>2d}{2:0>2d}_{3:0>2d}{4:0>2d}{5:0>2d}".format(
                 now.year, now.month, now.day, now.hour, now.minute, now.second)
-    result = xml_splitter(splitter_name, output_dir, manifest, config)
-    if result != 0:
-        return
+    manifests = xml_splitter(splitter_name, output_dir, manifest, config)
     
+    if os.path.exists(args.ignore_list) == True:
+        f = open(args.ignore_list)
+        ignore = f.read()
+        f.close()
+
+        tmp = []
+        for man in manifests:
+            f = open(man)
+            lines = f.readlines()
+            f.close()
+            analysis = ""
+            for line in lines:
+                if line.find("<analysis_id>") >= 0:
+                    analysis = re.split('<analysis_id>|</analysis_id>', line)[1]
+
+            if len(analysis) > 0:
+                if ignore.find(analysis) >= 0:
+                    write_log(log_path, "a", "Skip this manifest. %s, %s" % (man, analysis), True, True)
+                else:
+                    tmp.append(man)
+
+        manifests = tmp
+    
+    write_log(log_path, "a", "Files = %d." % (len(manifests)), True, True)
+
     process_list = []
-    manifests = glob.glob(output_dir + "/manifests/*")
     if len(manifests) < 1:
         print ("no manifests.")
         
     elif len(manifests) == 1:
         now = datetime.datetime.now()
-        name = "{name}_manifest{index:0>5d}_{year:0>4d}{month:0>2d}{day:0>2d}_{hour:0>2d}{minute:0>2d}{second:0>2d}".format(
-                name = "gt_surveilance", index = 1,
+        man_name = os.path.splitext(os.path.basename(manifest))[0]
+        name = "{name}_{man_name}_{year:0>4d}{month:0>2d}{day:0>2d}_{hour:0>2d}{minute:0>2d}{second:0>2d}".format(
+                name = "gt_surveilance", man_name = man_name,
                 year = now.year, month = now.month, day = now.day, 
                 hour = now.hour, minute = now.minute, second = now.second)
         qsub_process(name, output_dir, key, manifests[0], config)
@@ -242,8 +265,9 @@ def main():
                     
                 manifest = manifests[j]
                 now = datetime.datetime.now()
-                name = "{name}_manifest{index:0>5d}_{year:0>4d}{month:0>2d}{day:0>2d}_{hour:0>2d}{minute:0>2d}{second:0>2d}".format(
-                        name = "gt_surveilance", index = j+1,
+                man_name = os.path.splitext(os.path.basename(manifest))[0]
+                name = "{name}_{man_name}_{year:0>4d}{month:0>2d}{day:0>2d}_{hour:0>2d}{minute:0>2d}{second:0>2d}".format(
+                        name = "gt_surveilance", man_name = man_name,
                         year = now.year, month = now.month, day = now.day, 
                         hour = now.hour, minute = now.minute, second = now.second)
                 process = Process(target=qsub_process, name=name, args=(name, output_dir, key, manifest, config))
