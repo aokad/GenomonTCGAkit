@@ -73,7 +73,7 @@ def qsub_process(name, output_dir, bam, analysis_id, config):
         f = open(result_path, "w")
         f.write("%s\n-1\n-1" % analysis_id)
         f.close()
-        write_log(log_path, "a", name + ": Subprocess has been finished: " + str(return_val), True, True)
+        write_log(log_path, "a", name + ": Subprocess has been finished: 0", True, True)
         return 0
 
     cmd = cmd_format.format(samtools = config.get('TOOLS', 'samtools'), 
