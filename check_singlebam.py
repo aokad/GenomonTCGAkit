@@ -172,9 +172,9 @@ def main():
     if (os.path.exists(output_dir + "/scripts") == False):
         os.makedirs(output_dir + "/scripts")
     
+    summary_name = os.path.splitext(os.path.basename(summary))[0]
     now = datetime.datetime.now()
-    this_name = "check_bam_{0:0>4d}{1:0>2d}{2:0>2d}_{3:0>2d}{4:0>2d}{5:0>2d}".format(
-                now.year, now.month, now.day, now.hour, now.minute, now.second)
+    this_name = "check_bam_%s_%04d%02d%02d_%02d%02d%02d" % (summary_name, now.year, now.month, now.day, now.hour, now.minute, now.second)
     log_path = output_dir + "/log/%s.log" % this_name
     write_log(log_path, "w", "Start main process.", True, True)
 
@@ -217,7 +217,7 @@ def main():
                     
                 now = datetime.datetime.now()
                 name = "{name}_{index:0>5d}_{year:0>4d}{month:0>2d}{day:0>2d}_{hour:0>2d}{minute:0>2d}{second:0>2d}".format(
-                        name = "check_bam", index = j+1,
+                        name = summary_name, index = j+1,
                         year = now.year, month = now.month, day = now.day, 
                         hour = now.hour, minute = now.minute, second = now.second)
 
