@@ -167,16 +167,16 @@ def main():
         os.makedirs(output_dir)
     if (os.path.exists(output_dir + "/log") == False):
         os.makedirs(output_dir + "/log")
-    if (os.path.exists(output_dir + "/result") == True):
-        os.removedirs(output_dir + "/result")
-    os.makedirs(output_dir + "/result")
+    if (os.path.exists(output_dir + "/result") == False):
+        os.makedirs(output_dir + "/result")
     if (os.path.exists(output_dir + "/scripts") == False):
         os.makedirs(output_dir + "/scripts")
     
     now = datetime.datetime.now()
-    log_path = output_dir + "/log/" \
-                + "check_bam_{0:0>4d}{1:0>2d}{2:0>2d}_{3:0>2d}{4:0>2d}{5:0>2d}.log".format(
+    this_name = "check_bam_{0:0>4d}{1:0>2d}{2:0>2d}_{3:0>2d}{4:0>2d}{5:0>2d}".format(
                 now.year, now.month, now.day, now.hour, now.minute, now.second)
+    log_path = output_dir + "/log/" \
+                + "check_bam_%s.log" % this_name
     write_log(log_path, "w", "Start main process.", True, True)
 
     process_list = []
@@ -257,7 +257,7 @@ def main():
         if len(lines) >= 3:
             os.remove(output_dir + '/result/' + process.name + ".txt")
             
-            f = open(output_dir + "/result/check_bam_result.csv", "a")
+            f = open(output_dir + "/result/check_bam_result_%s.csv" % this_name, "a")
             f.write(lines[0] + "," + lines[1] + "," + lines[2] + "\n")
             f.close()
 
