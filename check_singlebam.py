@@ -175,8 +175,7 @@ def main():
     now = datetime.datetime.now()
     this_name = "check_bam_{0:0>4d}{1:0>2d}{2:0>2d}_{3:0>2d}{4:0>2d}{5:0>2d}".format(
                 now.year, now.month, now.day, now.hour, now.minute, now.second)
-    log_path = output_dir + "/log/" \
-                + "%s.log" % this_name
+    log_path = output_dir + "/log/%s.log" % this_name
     write_log(log_path, "w", "Start main process.", True, True)
 
     process_list = []
@@ -236,7 +235,8 @@ def main():
             time.sleep(interval)
 
     # summarize logs and results
-    f = open(output_dir + "/result/check_bam_result.csv", "w")
+    result_path = output_dir + "/result/result_%s.csv" % this_name
+    f = open(result_path, "w")
     f.write("analysis_id,total_lines,single_lines\n")
     f.close()
     
@@ -257,7 +257,7 @@ def main():
         if len(lines) >= 3:
             os.remove(output_dir + '/result/' + process.name + ".txt")
             
-            f = open(output_dir + "/result/result_%s.csv" % this_name, "a")
+            f = open(result_path, "a")
             f.write(lines[0] + "," + lines[1] + "," + lines[2] + "\n")
             f.close()
 
