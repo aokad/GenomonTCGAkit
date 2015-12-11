@@ -5,11 +5,18 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Check script, BAM can be used with the genomon.
 @author: okada
 
+$Id: check_singlebam.py 83 2015-12-11 06:53:14Z aokada $
+$Rev: 83 $
+
 # before run
+@code
 export DRMAA_LIBRARY_PATH=/geadmin/N1GE/lib/lx-amd64/libdrmaa.so.1.0
+@endcode
 
 # run
+@code
 check_singlebam.py {path to working dir} {TCGA summary file} {path to bam dir} --config_file {option: config file}
+@endcode
 """
 
 from multiprocessing import Process

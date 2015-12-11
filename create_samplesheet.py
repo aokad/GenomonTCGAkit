@@ -5,8 +5,12 @@ Created on Wed Nov 11 16:47:03 2015
 @brief:  Create sample sheet from TCGA summary.tsv for Genomon.
 @author: okada
 
-# run
+$Id: create_samplesheet.py 83 2015-12-11 06:53:14Z aokada $
+$Rev: 83 $
+
+@code
 create_samplesheet.py {output_file} {summary file} {path to bam dir} {bam check_result file} --config_file {option: config file}
+@endcode
 """
 
 import numpy
@@ -139,11 +143,11 @@ def main():
                     rst = rst.iloc[0]
 
                 if (rst["single_lines"] == -1) and (rst["total_lines"] == -1):
-                    print (skip_templete.format(id = one.iloc[j]["analysis_id"], reason = "find result -1 in bamcheck file."))
+                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "find result -1 in bamcheck file."))
                     continue
 
                 if float(rst["single_lines"])/float(rst["total_lines"]) > 0.2:
-                    print (skip_templete.format(id = one.iloc[j]["analysis_id"], reason = "number of single read id over the threshold."))
+                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "number of single read id over the threshold."))
                     continue
             
             sample_type = one.iloc[j]["sample_type_name"]
@@ -194,12 +198,19 @@ def main():
         control.append(range(i, i + len(list_num) * list_num[i], len(list_num)))
 
     # write sample sheet
-    text = pairlist_totext(t2, n2, control)
+    pair_text = pairlist_totext(t2, n2, control)
+    normal_text = normallist_totext(n2)
+    
     f = open(output_file, "a")
     f.write("\n[mutation_call]\n")
-    f.write(text)
+    f.write(pair_text)
+    f.write(normal_text)
     f.write("\n[sv_detection]\n")
-    f.write(text)
+    f.write(pair_text)
+    f.write(normal_text)
+    f.write("\n[summary]\n")
+    f.write(samplelist_totext(t2))
+    f.write(samplelist_totext(n2))
     f.write("\n[controlpanel]\n")
     f.write(contrlpanel_totext(n2, control))
     f.close()
@@ -227,6 +238,18 @@ def pairlist_totext(tumor_list, normal_list, control):
             text += "\n"
             
         li_idx = (li_idx + 1) % len(control)
+    return text
+
+def normallist_totext(li):
+    text = ""
+    for sample in li:
+        text += sample + ",None,None\n"
+    return text
+
+def samplelist_totext(li):
+    text = ""
+    for sample in li:
+        text += sample + "\n"
     return text
     
 def contrlpanel_totext(normal_list, control):

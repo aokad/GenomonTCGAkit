@@ -5,11 +5,22 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  download TCGA bam files
 @author: okada
 
+$Id: gt_surveillance.py 85 2015-12-11 08:04:59Z aokada $
+$Rev: 85 $
+
 # before run
+@code
 export DRMAA_LIBRARY_PATH=/geadmin/N1GE/lib/lx-amd64/libdrmaa.so.1.0
 
 # run
+@code
 gt_surveillance.py {path to working dir} {auth key} {manifest file} --config_file {option: config file}
+
+* use --ignore_list option, skip download/
+create this list, for example this command,
+
+ls -l data/ | egrep -v .gto$ | egrep -v .partial$ | cut -f 13 -d ' ' > complete.txt
+@endcode
 """
 
 from multiprocessing import Process
@@ -154,6 +165,16 @@ def xml_splitter(name, output_dir, manifest, config):
         print "xml_splitter error!: %s" % (stderr_data)
 
     return li
+
+def isbam_downloaded(manifest, bam_dir):
+    f = open(manifest)
+    text = f.read()
+    f.close()
+    analysis = re.split('<analysis_id>|</analysis_id>', text)[1]
+    name = re.split('<filename>|</filename>', text)[1]
+    bam = "%s/%s/%s" % (bam_dir, analysis, name)
+ 
+    return os.path.exists(bam)
     
 def main():
     name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
@@ -203,30 +224,34 @@ def main():
     # split manifest
     splitter_name = "xml_splitter{0:0>4d}{1:0>2d}{2:0>2d}_{3:0>2d}{4:0>2d}{5:0>2d}".format(
                 now.year, now.month, now.day, now.hour, now.minute, now.second)
-    manifests = xml_splitter(splitter_name, output_dir, manifest, config)
+    manifests_org = xml_splitter(splitter_name, output_dir, manifest, config)
     
+    ignore = ""
     if os.path.exists(args.ignore_list) == True:
         f = open(args.ignore_list)
         ignore = f.read()
         f.close()
 
-        tmp = []
-        for man in manifests:
-            f = open(man)
-            lines = f.readlines()
-            f.close()
-            analysis = ""
-            for line in lines:
-                if line.find("<analysis_id>") >= 0:
-                    analysis = re.split('<analysis_id>|</analysis_id>', line)[1]
+    manifests = []
+    for man in manifests_org:
+        f = open(man)
+        data = f.read()
+        f.close()
 
-            if len(analysis) > 0:
-                if ignore.find(analysis) >= 0:
-                    write_log(log_path, "a", "Skip this manifest. %s, %s" % (man, analysis), True, True)
-                else:
-                    tmp.append(man)
+        man_split = re.split('<analysis_id>|</analysis_id>', data)
+        if len(man_split) < 3:
+            continue
 
-        manifests = tmp
+        analysis = man_split[1]
+
+        if ignore.find(analysis) >= 0:
+            write_log(log_path, "a", "Skip this manifest because of ignore list. %s, %s" % (man, analysis), True, True)
+        elif isbam_downloaded(man, output_dir + "/data") == True:
+            write_log(log_path, "a", "Skip this manifest because of already downloaded. %s, %s" % (man, analysis), True, True)
+        else:
+            manifests.append(man)
+
+    manifests.sort()
     
     write_log(log_path, "a", "Files = %d." % (len(manifests)), True, True)
 
@@ -285,14 +310,24 @@ def main():
     for process in process_list:
         process.join()
 
-        f_plog = open(output_dir + '/log/' + process.name + ".log")
+        plog_file = output_dir + '/log/' + process.name + ".log"
+        if os.path.exists(plog_file) == False:
+            continue
+        
+        f_plog = open(plog_file)
         plog = f_plog.read()
         f_plog.close()
         os.remove(output_dir + '/log/' + process.name + ".log")
 
         write_log(log_path, "a", plog, False, False)
 
-    write_log(log_path, "a", "End main process.", True, True)
+    failure = 0
+    for manifest in manifests:
+        if isbam_downloaded(manifest, output_dir + "/data") == False:
+            write_log(log_path, "a", "Failed file to download = %s" % manifest, True, True)
+            failure += 1
+            
+    write_log(log_path, "a", "End main process. Failed file to download = %d" % failure, True, True)
 
 if __name__ == "__main__":
     main()

@@ -7,8 +7,13 @@ Created on Wed Nov 11 16:47:03 2015
          
 @author: okada
 
+$Id: split_summary.py 83 2015-12-11 06:53:14Z aokada $
+$Rev: 83 $
+
 # run
+@code
 split_summary.py {output_dir} {summary file} {manifest file}
+@endcode
 """
 
 from xml.etree import ElementTree
