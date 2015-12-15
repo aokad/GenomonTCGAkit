@@ -5,8 +5,8 @@ Created on Wed Nov 11 16:47:03 2015
 @brief:  Create sample sheet from TCGA summary.tsv for Genomon.
 @author: okada
 
-$Id: create_samplesheet.py 83 2015-12-11 06:53:14Z aokada $
-$Rev: 83 $
+$Id: create_samplesheet.py 96 2015-12-15 05:07:22Z aokada $
+$Rev: 96 $
 
 @code
 create_samplesheet.py {output_file} {summary file} {path to bam dir} {bam check_result file} --config_file {option: config file}
@@ -24,7 +24,7 @@ skip_template = "[analysis_id = {id}] is skipped, because of {reason}."
 
 def main():
     name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
-    
+
     # get args
     parser = argparse.ArgumentParser(prog = name)
     
@@ -35,18 +35,35 @@ def main():
     parser.add_argument('--check_result', help = "check_result file", type = str, default = "")
     parser.add_argument("--config_file", help = "config file", type = str, default = "")
     args = parser.parse_args()
+
+    # read config file    
+    if len(args.config_file) > 0:
+        config_file = os.path.abspath(args.config_file)
+    else:
+        config_file = os.path.splitext(os.path.abspath(sys.argv[0]))[0] + ".cfg"
+
+    config = ConfigParser.RawConfigParser()
+    config.read(config_file)
+        
+    # path check
+    if _is_debug(config) == False:
+        if os.path.exists(args.summary) == False:
+            print "This path is not exists." + args.summary
+            return
+      
+        if len(args.check_result) > 0 and os.path.exists(args.check_result) == False:
+            print "This path is not exists." + args.check_result
+            return
+            
+        if os.path.exists(args.bam_dir) == False:
+            print "This path is not exists." + args.bam_dir
+            return
     
-    if os.path.exists(args.summary) == False:
-        print "This path is not exists." + args.summary
-        return
-
-    if len(args.check_result) > 0 and os.path.exists(args.check_result) == False:
-        print "This path is not exists." + args.check_result
-        return
-
-    if os.path.exists(args.bam_dir) == False:
-        print "This path is not exists." + args.bam_dir
-        return
+    # get path    
+    if len(args.check_result) > 0:
+        check_result = os.path.abspath(args.check_result)
+        
+    bam_dir = os.path.abspath(args.bam_dir)
     
     output_file = os.path.abspath(args.output_file)
     if os.path.splitext(output_file)[1].lower() != ".csv":
@@ -55,27 +72,9 @@ def main():
 
     if os.path.exists(os.path.dirname(output_file)) == False:
         os.makedirs(os.path.dirname(output_file))
-
-    summary = os.path.abspath(args.summary)
-        
-    if len(args.check_result) > 0:
-        check_result = os.path.abspath(args.check_result)
-        
-    bam_dir = os.path.abspath(args.bam_dir)
-    
-    if len(args.config_file) > 0:
-        config_file = os.path.abspath(args.config_file)
-    else:
-        config_file = os.path.splitext(os.path.abspath(sys.argv[0]))[0] + ".cfg"
-        
-    # read config file
-    config = ConfigParser.RawConfigParser()
-    config.read(config_file)
-    debug = False
-    if config.has_option("MAIN", "debug_mode") == True:
-        debug = config.getboolean("MAIN", "debug_mode")
         
     # read summary
+    summary = os.path.abspath(args.summary)
     ext = os.path.splitext(summary)[1]
     if ext.lower() == ".tsv":
         data_org = pandas.read_csv(summary, sep = "\t")
@@ -95,21 +94,29 @@ def main():
     if (len(di2) > 1):
         print ("WARNING!!! Mixture of diseases.")
         
-    # read result
+    # read bam check result
     if len(args.check_result) > 0:
         result = pandas.read_csv(check_result, sep = ",")
         
-    # add person column, if not exists
-    tmp = []
+    # add sample column, person column, if not exists
+    #
+    # for example.
+    # original barcode    TCGA-3H-AB3K-10A-01D-A39U-32
+    #  ---> sample        TCGA-3H-AB3K-10
+    #  ---> person        TCGA-3H-AB3K
+    col_sample = []
+    col_person = []
     for i in range(len(data_org)):
         split = data_org["barcode"][i].split("-")
-        tmp.append(split[0] + "-" + split[1] + "-" + split[2])
-
-    add_sample = pandas.DataFrame([tmp]).T
-    add_sample.columns =["sample"]            
+        col_sample.append("%s-%s-%s-%s" % (split[0], split[1], split[2], split[3][0:2]))
+        col_person.append("%s-%s-%s" % (split[0], split[1], split[2]))
+    
+    if ("sample" in data_org.columns) == False:
+        add_sample = pandas.DataFrame([col_sample]).T
+        add_sample.columns =["sample"]            
 
     if ("person" in data_org.columns) == False:
-        add_person = pandas.DataFrame([tmp]).T
+        add_person = pandas.DataFrame([col_person]).T
         add_person.columns =["person"]
 
         data_tmp = pandas.concat([add_sample, add_person, data_org], axis=1)
@@ -171,8 +178,8 @@ def main():
     # write sample sheet
     f = open(output_file, "w")
     f.write("[bam_tofastq]\n")
-    f.write(bamlist_totext(tumor_list, bam_dir, debug))
-    f.write(bamlist_totext(normal_list, bam_dir, debug))
+    f.write(bamlist_totext(tumor_list, bam_dir, config))
+    f.write(bamlist_totext(normal_list, bam_dir, config))
     f.close()
 
     # make control_panel
@@ -265,7 +272,7 @@ def contrlpanel_totext(normal_list, control):
     
     return text
         
-def bamlist_totext(bam_list, bam_dir, debug):
+def bamlist_totext(bam_list, bam_dir, config):
 
     bam_template = "{bam_dir}/{analysis}/{file_name}"
 
@@ -276,7 +283,7 @@ def bamlist_totext(bam_list, bam_dir, debug):
         bam_path = bam_template.format(bam_dir = bam_dir, 
                     analysis = bam_list.iloc[i]["analysis_id"], file_name = bam_list.iloc[i]["filename"])
 
-        if os.path.exists(bam_path) == False and debug == False:
+        if os.path.exists(bam_path) == False and _is_debug(config) == False:
             print ("ERROR!!! This bam path is not exists.[" + bam_path + "], \nplease check arg bam_dir.")
             return text
 
@@ -297,6 +304,7 @@ def bamlist_totext(bam_list, bam_dir, debug):
     return text
     
 def append_list(li, data, cfg, tumor):
+
     section = data["disease"]
     if cfg.has_section(section) == False:
         section = "DEFAULT"
@@ -305,57 +313,61 @@ def append_list(li, data, cfg, tumor):
         priority = cfg.get(section, 'priority_tumor').split(",")
     else:
         priority = cfg.get(section, 'priority_normal').split(",")
-        
-    merge_list = cfg.get(section, 'merge').split(",")
-    merge = False
-    if (tumor == False) and (len(merge_list) == 0):
-        if (data["sample_type"] in merge_list) == True:
-            merge = True
     
-    no_use = cfg.get(section, 'no_use').split(",")
 
-    data["sample"] = data["sample"] + "-" + "%02d" % data["sample_type_name"]
+    if data['analysis_id'] == "6c5a8a1d-790e-447f-9bde-91b271dbe9f0":
+        pass
     
-    # no use
+    # no use ?
+    no_use = cfg.get(section, 'no_use').split(",")
+    
     if (data["sample_type"] in no_use) == True:
-        print (skip_template.format(id = data["analysis_id"], reason = "'no use'"))
+        print (skip_template.format(id = data["analysis_id"], reason = "'no use. sample_type=%s'" % data["sample_type"]))
         return li
     
-    # same sample_type
-    if len(li) > 0 and merge == True:
-        tmp = li[(li["sample_type"] == data["sample_type"])]
-        if len(tmp):
-            print (skip_template.format(id = data["analysis_id"], reason = "'sample type duplicate'"))
-            return li
-        
-    # priority
+    # first data
     if len(li) == 0:
         return li.append(data)
         
-    pri_data = 99
+    # duplicate barcode ?
+    tmp = li[(li["barcode"] == data["barcode"])]
+    if len(tmp) > 0:
+        print (skip_template.format(id = data["analysis_id"], reason = "'barcode duplicate. barcode=%s'" % data["barcode"]))
+        return li
+
+    # merge ?
+    merge_list = cfg.get(section, 'merge').split(",")
+    merge = False
+    if (tumor == False) and (len(merge_list) > 0):
+        if (data["sample_type"] in merge_list) == True:
+            merge = True
+            
+    # priority            
+    pri_data = 99       # priority of now
     if (data["sample_type"] in priority) == True:
         pri_data = priority.index(data["sample_type"])
 
-    pri_li = 99
+    pri_li = 99         # priority of registered
     for i in range(len(li)):
         if (li.iloc[i]["sample_type"] in priority) == True:
             pri = priority.index(li.iloc[i]["sample_type"])
             if pri < pri_li:
                 pri_li = pri
-    
-    if pri_data == pri_li:
+                
+    if pri_data == pri_li:   # even
         if merge == True:
+            print ("[analysis_id = %s] is merged. sample_type=%s" % (data["analysis_id"], data["sample_type"]))
             return li.append(data)
         else:
-            print (skip_template.format(id = data["analysis_id"], reason = "'sample type duplicate'"))
-            return li
+            print (skip_template.format(id = data["analysis_id"], reason = "'sample type duplicate. sample_type=%s'" % data["sample_type"]))
+            return li 
             
-    if pri_data < pri_li:
+    elif pri_data < pri_li:   # win
         li = pandas.DataFrame([])
         return li.append(data)
 
-    else:
-        print (skip_template.format(id = data["analysis_id"], reason = "'priority'"))
+    else:                     # lost
+        print (skip_template.format(id = data["analysis_id"], reason = "'priority. sample_type=%s'" % data["sample_type"]))
         
     return li
 
@@ -392,7 +404,14 @@ def _split_list(leng, size):
 
     return cols
 
-
+def _is_debug(config):
+    
+    debug = False
+    if config.has_option("MAIN", "debug_mode") == True:
+        debug = config.getboolean("MAIN", "debug_mode")
+    
+    return debug
+    
 if __name__ == "__main__":
 
     main()
