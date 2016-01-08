@@ -7,14 +7,15 @@ Created on Wed Nov 11 16:47:03 2015
          
 @author: okada
 
-$Id: split_summary.py 83 2015-12-11 06:53:14Z aokada $
-$Rev: 83 $
+$Id: split_summary.py 120 2016-01-08 04:44:28Z aokada $
+$Rev: 120 $
 
 # run
 @code
 split_summary.py {output_dir} {summary file} {manifest file}
 @endcode
 """
+rev = " $Rev: 120 $"
 
 from xml.etree import ElementTree
 from xml.dom import minidom
@@ -36,7 +37,7 @@ def main():
     # get args
     parser = argparse.ArgumentParser(prog = name)
     
-    parser.add_argument("--version", action = "version", version = name + "-1.0.0")
+    parser.add_argument("--version", action = "version", version = name + rev)
     parser.add_argument('output_dir', help = "output root directory", type = str)
     parser.add_argument('summary', help = "summary file download from TCGA", type = str)
     parser.add_argument('manifest', help = "manifest file download from TCGA", type = str)

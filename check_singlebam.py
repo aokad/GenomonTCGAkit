@@ -5,8 +5,8 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Check script, BAM can be used with the genomon.
 @author: okada
 
-$Id: check_singlebam.py 83 2015-12-11 06:53:14Z aokada $
-$Rev: 83 $
+$Id: check_singlebam.py 120 2016-01-08 04:44:28Z aokada $
+$Rev: 120 $
 
 # before run
 @code
@@ -18,6 +18,7 @@ export DRMAA_LIBRARY_PATH=/geadmin/N1GE/lib/lx-amd64/libdrmaa.so.1.0
 check_singlebam.py {path to working dir} {TCGA summary file} {path to bam dir} --config_file {option: config file}
 @endcode
 """
+rev = " $Rev: 120 $"
 
 from multiprocessing import Process
 import pandas
@@ -149,7 +150,7 @@ def main():
     # get args
     parser = argparse.ArgumentParser(prog = name)
     
-    parser.add_argument("--version", action = "version", version = name + "-1.0.0")
+    parser.add_argument("--version", action = "version", version = name + rev)
     parser.add_argument('output_dir', help = "output root directory", type = str)
     parser.add_argument('summary', help = "summary file download from TCGA", type = str)
     parser.add_argument('bam_dir', help = "bam downloaded directory", type = str)

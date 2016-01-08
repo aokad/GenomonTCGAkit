@@ -5,13 +5,14 @@ Created on Wed Nov 11 16:47:03 2015
 @brief:  Create sample sheet from TCGA summary.tsv for Genomon.
 @author: okada
 
-$Id: create_samplesheet.py 96 2015-12-15 05:07:22Z aokada $
-$Rev: 96 $
+$Id: create_samplesheet.py 120 2016-01-08 04:44:28Z aokada $
+$Rev: 120 $
 
 @code
 create_samplesheet.py {output_file} {summary file} {path to bam dir} {bam check_result file} --config_file {option: config file}
 @endcode
 """
+rev = " $Rev: 120 $"
 
 import numpy
 import pandas
@@ -28,7 +29,7 @@ def main():
     # get args
     parser = argparse.ArgumentParser(prog = name)
     
-    parser.add_argument("--version", action = "version", version = name + "-1.0.0")
+    parser.add_argument("--version", action = "version", version = name + rev)
     parser.add_argument('output_file', help = "output file, please input with format NAME.csv", type = str)
     parser.add_argument('summary', help = "summary file download from TCGA", type = str)
     parser.add_argument('bam_dir', help = "bam downloaded directory", type = str)

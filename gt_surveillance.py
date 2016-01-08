@@ -5,8 +5,8 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  download TCGA bam files
 @author: okada
 
-$Id: gt_surveillance.py 85 2015-12-11 08:04:59Z aokada $
-$Rev: 85 $
+$Id: gt_surveillance.py 120 2016-01-08 04:44:28Z aokada $
+$Rev: 120 $
 
 # before run
 @code
@@ -22,6 +22,7 @@ create this list, for example this command,
 ls -l data/ | egrep -v .gto$ | egrep -v .partial$ | cut -f 13 -d ' ' > complete.txt
 @endcode
 """
+rev = " $Rev: 120 $"
 
 from multiprocessing import Process
 import glob
@@ -182,7 +183,7 @@ def main():
     # get args
     parser = argparse.ArgumentParser(prog = name)
     
-    parser.add_argument("--version", action = "version", version = name + "-1.0.0")
+    parser.add_argument("--version", action = "version", version = name + rev)
     parser.add_argument('output_dir', help = "output root directory", type = str)
     parser.add_argument('key', help = "key file download from TCGA", type = str)
     parser.add_argument('manifest', help = "manifest file downloaded from TCGA", type = str)
