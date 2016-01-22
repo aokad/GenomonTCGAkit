@@ -5,14 +5,14 @@ Created on Wed Nov 11 16:47:03 2015
 @brief:  Create sample sheet from TCGA summary.tsv for Genomon.
 @author: okada
 
-$Id: create_samplesheet.py 120 2016-01-08 04:44:28Z aokada $
-$Rev: 120 $
+$Id: create_samplesheet.py 127 2016-01-22 02:17:18Z aokada $
+$Rev: 127 $
 
 @code
 create_samplesheet.py {output_file} {summary file} {path to bam dir} {bam check_result file} --config_file {option: config file}
 @endcode
 """
-rev = " $Rev: 120 $"
+rev = " $Rev: 127 $"
 
 import numpy
 import pandas
@@ -154,10 +154,12 @@ def main():
                     print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "find result -1 in bamcheck file."))
                     continue
 
-                if float(rst["single_lines"])/float(rst["total_lines"]) > 0.2:
-                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "number of single read id over the threshold."))
+                if (float(rst["single_lines"])/float(rst["total_lines"])) > config.getfloat("MAIN", "th_checkbam_single_rate"):
+                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "number of single read is too many."))
                     continue
-            
+                if rst["total_lines"] < config.getfloat("MAIN", "th_checkbam_read_total"):
+                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "number of total read is too few."))
+                    continue
             sample_type = one.iloc[j]["sample_type_name"]
 
             # apply barcode duplicate
@@ -172,9 +174,9 @@ def main():
             normal_list = normal_list.append(tmp_normal)
         else:
             for i in range(len(tmp_tumor)):
-                print (skip_template.format(id = tmp_tumor.iloc[i]["analysis_id"], reason = "'not have normal'"))
+                print (skip_template.format(id = tmp_tumor.iloc[i]["analysis_id"], reason = "not have normal"))
             for i in range(len(tmp_normal)):
-                print (skip_template.format(id = tmp_normal.iloc[i]["analysis_id"], reason = "'not have tumor'"))
+                print (skip_template.format(id = tmp_normal.iloc[i]["analysis_id"], reason = "not have tumor"))
 
     # write sample sheet
     f = open(output_file, "w")
@@ -288,9 +290,11 @@ def bamlist_totext(bam_list, bam_dir, config):
             print ("ERROR!!! This bam path is not exists.[" + bam_path + "], \nplease check arg bam_dir.")
             return text
 
+        # case of bam merge
         if last == bam_list.iloc[i]["sample"]:
-            text += ("," + bam_path)
+            text += (";" + bam_path)
 
+        # case of new sample
         else:
             if (len(text) > 0):
                 text += ("\n")
@@ -323,7 +327,7 @@ def append_list(li, data, cfg, tumor):
     no_use = cfg.get(section, 'no_use').split(",")
     
     if (data["sample_type"] in no_use) == True:
-        print (skip_template.format(id = data["analysis_id"], reason = "'no use. sample_type=%s'" % data["sample_type"]))
+        print (skip_template.format(id = data["analysis_id"], reason = "no use. sample_type=%s" % data["sample_type"]))
         return li
     
     # first data
@@ -333,7 +337,7 @@ def append_list(li, data, cfg, tumor):
     # duplicate barcode ?
     tmp = li[(li["barcode"] == data["barcode"])]
     if len(tmp) > 0:
-        print (skip_template.format(id = data["analysis_id"], reason = "'barcode duplicate. barcode=%s'" % data["barcode"]))
+        print (skip_template.format(id = data["analysis_id"], reason = "barcode duplicate. barcode=%s" % data["barcode"]))
         return li
 
     # merge ?
@@ -360,7 +364,7 @@ def append_list(li, data, cfg, tumor):
             print ("[analysis_id = %s] is merged. sample_type=%s" % (data["analysis_id"], data["sample_type"]))
             return li.append(data)
         else:
-            print (skip_template.format(id = data["analysis_id"], reason = "'sample type duplicate. sample_type=%s'" % data["sample_type"]))
+            print (skip_template.format(id = data["analysis_id"], reason = "sample type duplicate. sample_type=%s" % data["sample_type"]))
             return li 
             
     elif pri_data < pri_li:   # win
@@ -368,7 +372,7 @@ def append_list(li, data, cfg, tumor):
         return li.append(data)
 
     else:                     # lost
-        print (skip_template.format(id = data["analysis_id"], reason = "'priority. sample_type=%s'" % data["sample_type"]))
+        print (skip_template.format(id = data["analysis_id"], reason = "priority. sample_type=%s" % data["sample_type"]))
         
     return li
 
