@@ -44,12 +44,18 @@ hostname                # print hostname
 date                    # print date
 set -xv
 
+export PYTHONHOME=/usr/local/package/python/current2.7
+export PATH=${PYTHONHOME}/bin:${PATH}
+export LD_LIBRARY_PATH=${PYTHONHOME}/lib:${LD_LIBRARY_PATH}
+
+python ./mdtest.py {bam} {out_checksum}
+
 total_l=`{samtools} view {bam} | wc -l`
 single_l=`{samtools} view -F 1 {bam} | wc -l`
 
-echo {analysis_id} > {out}
-echo `expr $total_l` >> {out}
-echo `expr $single_l` >> {out}
+echo {analysis_id} > {out_single}
+echo `expr $total_l` >> {out_single}
+echo `expr $single_l` >> {out_single}
 """
 
 def write_log(path, mode, text, date, printer):
