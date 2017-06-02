@@ -2,14 +2,15 @@
 """
 Created on Wed Nov 11 16:47:03 2015
 
-@brief:  Create sample sheet from TCGA summary.tsv for Genomon.
+@brief:  Create sample sheet from TCGA metadata.json for Genomon.
 @author: okada
 
 $Id: create_samplesheet.py 127 2016-01-22 02:17:18Z aokada $
 $Rev: 127 $
 
 @code
-create_samplesheet.py {output_file} {summary file} {path to bam dir} {bam check_result file} --config_file {option: config file}
+create_samplesheet.py {path to output_sample.csv} {TCGA metadata.json} {bam check_result file} {path to bam dir} --config_file {option: config file}
+
 @endcode
 """
 rev = " $Rev: 127 $"

@@ -5,7 +5,7 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Check script, BAM can be used with the genomon.
 @author: okada
 
-$Id: check_singlebam.py 120 2016-01-08 04:44:28Z aokada $
+$Id: check_bam.py 120 2016-01-08 04:44:28Z aokada $
 $Rev: 120 $
 
 # before run
@@ -15,7 +15,7 @@ export DRMAA_LIBRARY_PATH=/geadmin/N1GE/lib/lx-amd64/libdrmaa.so.1.0
 
 # run
 @code
-check_singlebam.py {path to working dir} {TCGA summary file} {path to bam dir} --config_file {option: config file}
+check_bam.py {TCGA metadata.json} {path to bam dir} {path to output dir} {project name} --config_file {option: config file}
 @endcode
 """
 rev = " $Rev: 120 $"
@@ -48,14 +48,15 @@ export PYTHONHOME=/usr/local/package/python/current2.7
 export PATH=${PYTHONHOME}/bin:${PATH}
 export LD_LIBRARY_PATH=${PYTHONHOME}/lib:${LD_LIBRARY_PATH}
 
-md5_check=`python ./mdtest.py {bam} {md5}`
+echo {analysis_id} > {out}
+
+python ./mdtest.py {bam} {md5}
+echo `expr $?` >> {out}
 
 total_l=`{samtools} view {bam} | wc -l`
-single_l=`{samtools} view -F 1 {bam} | wc -l`
-
-echo {analysis_id} > {out}
-echo `expr $md5_check` >> {out}
 echo `expr $total_l` >> {out}
+
+single_l=`{samtools} view -F 1 {bam} | wc -l`
 echo `expr $single_l` >> {out}
 """
 
@@ -82,14 +83,6 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
     result_path = output_dir + "/result/" + name + ".txt"
     
     write_log(log_path, "w", name + ": Subprocess has been started, with script " + script_path, True, False)
-    
-    if os.path.exists(bam) == False:
-        write_log(log_path, "a", name + "[%s] bam file is not exists.: %s" % (analysis_id, bam), True, True)
-        f = open(result_path, "w")
-        f.write("%s\n-1\n-1" % analysis_id)
-        f.close()
-        write_log(log_path, "a", name + ": Subprocess has been finished: 0", True, True)
-        return 0
 
     cmd = cmd_format.format(samtools = config.get('TOOLS', 'samtools'), 
                 bam = bam, analysis_id = analysis_id, md5=md5,
@@ -102,7 +95,7 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
 
     s = drmaa.Session()
 
-    return_val = 1
+    return_val = 0
     retry_max = config.getint('JOB_CONTROL', 'retry_max')
     for i in range(retry_max):
         
@@ -142,14 +135,13 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
         s.exit()
 
         if err == False:
-            return_val = 0
+            return_val = -1
             break
         
     write_log(log_path, "a", name + ": Subprocess has been finished: " + str(return_val), True, True)
 
     return return_val
     
-
 def main():
     name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
     
@@ -160,9 +152,9 @@ def main():
     
     parser.add_argument('metadata', help = "metdata-file(.json) downloaded from TCGA", type = str)
     parser.add_argument('bam_dir', help = "bam downloaded directory", type = str)
-    parser.add_argument('project', help = "project name (ACC, BLCA, etc)", type = str)
-    
     parser.add_argument('output_dir', help = "output root directory", type = str)
+    parser.add_argument('project', help = "project name (ACC, BLCA, etc)", type = str)
+
     parser.add_argument("--config_file", help = "config file", type = str, default = "")
     args = parser.parse_args()
 
@@ -200,13 +192,23 @@ def main():
     # read metadata
     read_data = json.load(open(metadata))
     data = []
+    
+    result_path = output_dir + "/result/result_%s.csv" % this_name
+    f = open(result_path, "w")
+    f.write("analysis_id,result,md5_check,total_lines,single_lines\n")
     for obj in read_data:
         if not obj["experimental_strategy"] in config.getstr('METADATA', 'experimental_strategy').split(","):
+            f.write("%s,%s,,,\n" % (obj["analysis"]["analysis_id"], obj["experimental_strategy"]))
             continue
         if not obj["platform"] in config.getstr('METADATA', 'platform').split(","):
+            f.write("%s,%s,,,\n" % (obj["analysis"]["analysis_id"], obj["platform"]))
+            continue
+        if os.path.exists(bam_dir + "/" + obj["analysis"]["analysis_id"] + "/" + obj["filename"]) == False:
+            f.write("%s,not exist bam,,,\n" % (obj["analysis"]["analysis_id"]))
             continue
         data.push(obj)
-        
+    f.close()
+    
     # loop for job start
     max_once_jobs = config.getint('JOB_CONTROL', 'max_once_jobs')
     max_all_jobs = max_once_jobs * 2
@@ -246,12 +248,16 @@ def main():
         
         time.sleep(interval)
 
-    # summarize logs and results
-    result_path = output_dir + "/result/result_%s.csv" % this_name
-    f = open(result_path, "w")
-    f.write("analysis_id,md5_check,total_lines,single_lines\n")
-    f.close()
+    # summarize logs and results  
+    th_read_total = 0
+    if config.has_option("CHECKBAM", "read_total"):
+        th_read_total = config.getint("CHECKBAM", "read_total")
     
+    th_single_rate = 1.0
+    if config.has_option("CHECKBAM", "single_rate"):
+        th_read_total = config.getfloat("CHECKBAM", "single_rate")
+        
+    config.getint('JOB_CONTROL', 'interval')  
     for process in process_list:
         process.join()
 
@@ -266,12 +272,22 @@ def main():
         pres = f_result.read()
         f_result.close()
         lines = pres.split("\n")
+        f = open(result_path, "a")
         if len(lines) >= 4:
             os.remove(output_dir + '/result/' + process.name + ".txt")
+            result = "0K"
+            if int(lines[1]) != 0:
+                result = "unmatch checksum"
+            elif int(lines[2]) < th_read_total:
+                result = "too few reads"
+            elif float(lines[3]) / float(lines[2]) > th_single_rate:
+                result = "single read"
+            f.write("%s,%s,%s,%s,%s\n" % (lines[0], result, lines[1], lines[2], lines[3]))
             
-            f = open(result_path, "a")
-            f.write(lines[0] + "," + lines[1] + "," + lines[2] + "," + lines[3] + "\n")
-            f.close()
+        else:
+            f.write("%s,check_error,,,\n" % (lines[0]))
+        
+        f.close()    
 
     write_log(log_path, "a", "End main process.", True, True)
 

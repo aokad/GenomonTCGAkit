@@ -11,18 +11,22 @@ def get_md5(filename, size = 8192):
 
 def main():
     import argparse
-    import glob
-
+    
     prog = "testmd"
     parser = argparse.ArgumentParser(prog = prog)
     parser.add_argument("--version", action = "version", version = prog + "-0.1.0")
-    parser.add_argument('bamfile', help = "bam files to  glob", type = str)
-    parser.add_argument('md5', help = "bam files to  glob", type = str)
+    parser.add_argument('bam', help = "bam file", type = str)
+    parser.add_argument('md5', help = "reference checksum", type = str)
     
     args = parser.parse_args()
 
-    hexdigest = get_md5(bam);
-    return (hexdigest == args.md5)
+    hexdigest = get_md5(args.bam);
+    if hexdigest == args.md5:
+        return 0
+    
+    return -1
 
 if __name__ == "__main__":
-    main()
+    import sys
+    sys.exit(main())
+    
