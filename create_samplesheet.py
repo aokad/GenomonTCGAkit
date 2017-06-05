@@ -9,7 +9,7 @@ $Id: create_samplesheet.py 127 2016-01-22 02:17:18Z aokada $
 $Rev: 127 $
 
 @code
-create_samplesheet.py {path to output_sample.csv} {TCGA metadata.json} {bam check_result file} {path to bam dir} --config_file {option: config file}
+create_samplesheet.py {path to output_sample.csv} {TCGA metadata.json} {path to bam dir} --check_result {bam check_result file} --config_file {option: config file}
 
 @endcode
 """
@@ -22,6 +22,8 @@ import sys
 import ConfigParser
 import argparse
 
+import subcode
+
 skip_template = "[analysis_id = {id}] is skipped, because of {reason}."
 
 def main():
@@ -32,7 +34,7 @@ def main():
     
     parser.add_argument("--version", action = "version", version = name + rev)
     parser.add_argument('output_file', help = "output file, please input with format NAME.csv", type = str)
-    parser.add_argument('summary', help = "summary file download from TCGA", type = str)
+    parser.add_argument('metadata', help = "metadata file download from TCGA", type = str)
     parser.add_argument('bam_dir', help = "bam downloaded directory", type = str)
     parser.add_argument('--check_result', help = "check_result file", type = str, default = "")
     parser.add_argument("--config_file", help = "config file", type = str, default = "")
@@ -49,8 +51,8 @@ def main():
         
     # path check
     if _is_debug(config) == False:
-        if os.path.exists(args.summary) == False:
-            print "This path is not exists." + args.summary
+        if os.path.exists(args.metadata) == False:
+            print "This path is not exists." + args.metadata
             return
       
         if len(args.check_result) > 0 and os.path.exists(args.check_result) == False:
@@ -62,9 +64,6 @@ def main():
             return
     
     # get path    
-    if len(args.check_result) > 0:
-        check_result = os.path.abspath(args.check_result)
-        
     bam_dir = os.path.abspath(args.bam_dir)
     
     output_file = os.path.abspath(args.output_file)
@@ -75,30 +74,21 @@ def main():
     if os.path.exists(os.path.dirname(output_file)) == False:
         os.makedirs(os.path.dirname(output_file))
         
-    # read summary
-    summary = os.path.abspath(args.summary)
-    ext = os.path.splitext(summary)[1]
-    if ext.lower() == ".tsv":
-        data_org = pandas.read_csv(summary, sep = "\t")
-    elif ext.lower() == ".csv":
-        data_org = pandas.read_csv(summary, sep = ",")
+    # read metadata
+    if _is_debug(config):
+        loaded = subcode.load_metadata(args.metadata, check_result=args.check_result)
     else:
-        print (ext + " file is not support")
-        return
-
-    if len(data_org) < 1:
-        print ("no summary data.")
-        return
+        loaded = subcode.load_metadata(args.metadata, bam_dir=bam_dir, check_result=args.check_result)
+        
+    data_org = subcode.json_to_pandas(loaded["data"])
+    for row in loaded["invalid"]:
+        print skip_template.format(id = row[0], reason = row[1])
         
     # multiple diseases?
     di1 = data_org.sort(["disease"])
     di2 = di1["disease"][(di1["disease"].duplicated() == False)]
     if (len(di2) > 1):
         print ("WARNING!!! Mixture of diseases.")
-        
-    # read bam check result
-    if len(args.check_result) > 0:
-        result = pandas.read_csv(check_result, sep = ",")
         
     # add sample column, person column, if not exists
     #
@@ -142,25 +132,7 @@ def main():
         tmp_normal = pandas.DataFrame([])
         
         for j in range(len(one)):
-            if len(args.check_result) > 0:
-                rst = result[(result["analysis_id"] == one.iloc[j]["analysis_id"])]
-                
-                if len(rst) == 0:
-                    print ("WARNING!!! [analysis_id = {id}] cannot find result data in bamcheck file.".format(id = one.iloc[j]["analysis_id"]))
-                    continue
-                if len(rst.shape) > 1:
-                    rst = rst.iloc[0]
-
-                if (rst["single_lines"] == -1) and (rst["total_lines"] == -1):
-                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "find result -1 in bamcheck file."))
-                    continue
-
-                if (float(rst["single_lines"])/float(rst["total_lines"])) > config.getfloat("MAIN", "th_checkbam_single_rate"):
-                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "number of single read is too many."))
-                    continue
-                if rst["total_lines"] < config.getfloat("MAIN", "th_checkbam_read_total"):
-                    print (skip_template.format(id = one.iloc[j]["analysis_id"], reason = "number of total read is too few."))
-                    continue
+            
             sample_type = one.iloc[j]["sample_type_name"]
 
             # apply barcode duplicate
@@ -219,7 +191,7 @@ def main():
     f.write("\n[sv_detection]\n")
     f.write(pair_text)
     f.write(normal_text)
-    f.write("\n[summary]\n")
+    f.write("\n[qc]\n")
     f.write(samplelist_totext(t2))
     f.write(samplelist_totext(n2))
     f.write("\n[controlpanel]\n")

@@ -21,14 +21,14 @@ check_bam.py {TCGA metadata.json} {path to bam dir} {path to output dir} {projec
 rev = " $Rev: 120 $"
 
 from multiprocessing import Process
-import json
 import time
-import datetime
 import sys
 import os
 import drmaa
 import ConfigParser
 import argparse
+
+import subcode
 
 cmd_format = """
 #!/bin/bash
@@ -60,29 +60,13 @@ single_l=`{samtools} view -F 1 {bam} | wc -l`
 echo `expr $single_l` >> {out}
 """
 
-def write_log(path, mode, text, date, printer):
-
-    t = ""
-    if date == True:
-        now = datetime.datetime.now()
-        t = "{0:0>4d}/{1:0>2d}/{2:0>2d} {3:0>2d}:{4:0>2d}:{5:0>2d}: ".format(
-                                now.year, now.month, now.day, now.hour, now.minute, now.second)
-
-    f = open(path, mode)
-    f.write(t + text + "\n")
-    f.close()
-
-    if printer == True:
-        print (t + text)
-
-
 def qsub_process(name, output_dir, bam, analysis_id, md5, config):
     
     script_path = output_dir + "/scripts/" + name + ".sh"
     log_path = output_dir + "/log/" + name + ".log"
     result_path = output_dir + "/result/" + name + ".txt"
     
-    write_log(log_path, "w", name + ": Subprocess has been started, with script " + script_path, True, False)
+    subcode.write_log(log_path, "w", name + ": Subprocess has been started, with script " + script_path, True, False)
 
     cmd = cmd_format.format(samtools = config.get('TOOLS', 'samtools'), 
                 bam = bam, analysis_id = analysis_id, md5=md5,
@@ -109,7 +93,7 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
         
         jobid = s.runJob(jt)
     
-        write_log(log_path, "a", name + ": Job has been submitted with id: " + jobid, True, True)
+        subcode.write_log(log_path, "a", name + ": Job has been submitted with id: " + jobid, True, True)
 
         log_text = ""
         err = False
@@ -129,7 +113,7 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
             log_text = "with error " + e.message
             err = True
         
-        write_log(log_path, "a", name + ": Job: " + str(jobid) + ' finished ' + log_text, True, True)
+        subcode.write_log(log_path, "a", name + ": Job: " + str(jobid) + ' finished ' + log_text, True, True)
 
         s.deleteJobTemplate(jt)
         s.exit()
@@ -138,10 +122,10 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
             return_val = -1
             break
         
-    write_log(log_path, "a", name + ": Subprocess has been finished: " + str(return_val), True, True)
+    subcode.write_log(log_path, "a", name + ": Subprocess has been finished: " + str(return_val), True, True)
 
     return return_val
-    
+   
 def main():
     name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
     
@@ -181,32 +165,21 @@ def main():
     if (os.path.exists(output_dir + "/scripts") == False):
         os.makedirs(output_dir + "/scripts")
     
-    project = args.project
-    now = datetime.datetime.now()
-    this_name = "check_bam_%s_%04d%02d%02d_%02d%02d%02d" % (project, now.year, now.month, now.day, now.hour, now.minute, now.second)
+    this_name = "check_bam_%s_%s" % (args.project, subcode.date_str())
     log_path = output_dir + "/log/%s.log" % this_name
-    write_log(log_path, "w", "Start main process.", True, True)
+    subcode.write_log(log_path, "w", "Start main process.", True, True)
 
     process_list = []
     
     # read metadata
-    read_data = json.load(open(metadata))
-    data = []
+    loaded = subcode.load_metadata(metadata, bam_dir, config)
+    data = loaded["data"]
     
     result_path = output_dir + "/result/result_%s.csv" % this_name
     f = open(result_path, "w")
     f.write("analysis_id,result,md5_check,total_lines,single_lines\n")
-    for obj in read_data:
-        if not obj["experimental_strategy"] in config.getstr('METADATA', 'experimental_strategy').split(","):
-            f.write("%s,%s,,,\n" % (obj["analysis"]["analysis_id"], obj["experimental_strategy"]))
-            continue
-        if not obj["platform"] in config.getstr('METADATA', 'platform').split(","):
-            f.write("%s,%s,,,\n" % (obj["analysis"]["analysis_id"], obj["platform"]))
-            continue
-        if os.path.exists(bam_dir + "/" + obj["analysis"]["analysis_id"] + "/" + obj["filename"]) == False:
-            f.write("%s,not exist bam,,,\n" % (obj["analysis"]["analysis_id"]))
-            continue
-        data.push(obj)
+    for row in loaded["invalid"]:
+        f.write("%s,%s,,,\n" % (row[0], row[1]))
     f.close()
     
     # loop for job start
@@ -229,11 +202,7 @@ def main():
             if j >= len(data):
                 break
                 
-            now = datetime.datetime.now()
-            name = "{name}_{index:0>5d}_{year:0>4d}{month:0>2d}{day:0>2d}_{hour:0>2d}{minute:0>2d}{second:0>2d}".format(
-                    name = project, index = j+1,
-                    year = now.year, month = now.month, day = now.day, 
-                    hour = now.hour, minute = now.minute, second = now.second)
+            name = "%s_%05d_%s" % (args.project, j+1, subcode.date_str())
 
             bam = bam_dir + "/" + data[j]["analysis"]["analysis_id"] + "/" + data[j]["filename"]
             
@@ -241,7 +210,7 @@ def main():
             process.daemon == True
             process.start()
             
-            write_log(log_path, "a", name + ": Start sub process.", True, False)
+            subcode.write_log(log_path, "a", name + ": Start sub process.", True, False)
 
             process_list.append(process)
             j += 1
@@ -266,7 +235,7 @@ def main():
         f_plog.close()
         os.remove(output_dir + '/log/' + process.name + ".log")
 
-        write_log(log_path, "a", plog, False, False)
+        subcode.write_log(log_path, "a", plog, False, False)
         
         f_result = open(output_dir + '/result/' + process.name + ".txt")
         pres = f_result.read()
@@ -289,7 +258,7 @@ def main():
         
         f.close()    
 
-    write_log(log_path, "a", "End main process.", True, True)
+    subcode.write_log(log_path, "a", "End main process.", True, True)
 
 if __name__ == "__main__":
     main()
