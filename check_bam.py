@@ -204,9 +204,9 @@ def main():
                 
             name = "%s_%05d_%s" % (args.project, j+1, subcode.date_str())
 
-            bam = bam_dir + "/" + data[j]["analysis"]["analysis_id"] + "/" + data[j]["filename"]
+            bam = bam_dir + "/" + data[j]["file_id"] + "/" + data[j]["filename"]
             
-            process = Process(target=qsub_process, name=name, args=(name, output_dir, bam, data[j]["analysis"]["analysis_id"], data[j]["md5sum"], config))
+            process = Process(target=qsub_process, name=name, args=(name, output_dir, bam, data[j]["file_id"], data[j]["md5sum"], config))
             process.daemon == True
             process.start()
             

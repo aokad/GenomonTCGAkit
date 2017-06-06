@@ -9,7 +9,7 @@ $Id: create_samplesheet.py 127 2016-01-22 02:17:18Z aokada $
 $Rev: 127 $
 
 @code
-create_samplesheet.py {path to output_sample.csv} {TCGA metadata.json} {path to bam dir} --check_result {bam check_result file} --config_file {option: config file}
+create_samplesheet.py {TCGA metadata.json} {path to bam dir} {path to output_sample.csv} --check_result {bam check_result file} --config_file {option: config file}
 
 @endcode
 """
@@ -20,72 +20,78 @@ import pandas
 import os
 import sys
 import ConfigParser
-import argparse
-
 import subcode
 
 skip_template = "[analysis_id = {id}] is skipped, because of {reason}."
 
 def main():
+    
+    import argparse
+    #print sys.argv
+    #sys.argv = ['./create_samplesheet.py', './metadata.acc.json', '/', 'acc2.csv', '--config_file', './create_samplesheet.cfg', '--check_result', './result_acc.txt']
+    
     name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
     # get args
     parser = argparse.ArgumentParser(prog = name)
     
     parser.add_argument("--version", action = "version", version = name + rev)
-    parser.add_argument('output_file', help = "output file, please input with format NAME.csv", type = str)
     parser.add_argument('metadata', help = "metadata file download from TCGA", type = str)
     parser.add_argument('bam_dir', help = "bam downloaded directory", type = str)
+    parser.add_argument('output_file', help = "output file, please input with format NAME.csv", type = str)
     parser.add_argument('--check_result', help = "check_result file", type = str, default = "")
     parser.add_argument("--config_file", help = "config file", type = str, default = "")
     args = parser.parse_args()
 
-    # read config file    
-    if len(args.config_file) > 0:
-        config_file = os.path.abspath(args.config_file)
-    else:
+    create_samplesheet(args.metadata, args.bam_dir, args.output_file, args.check_result, args.config_file)
+    
+def create_samplesheet(metadata, bam_dir, output_file, check_result, config_file):
+    
+    # read config file
+    if len(config_file) == 0:
         config_file = os.path.splitext(os.path.abspath(sys.argv[0]))[0] + ".cfg"
-
+    else:
+        if os.path.exists(config_file) == False:
+            print ("This path is not exists." + config_file)
+            return 
+            
     config = ConfigParser.RawConfigParser()
     config.read(config_file)
         
     # path check
-    if _is_debug(config) == False:
-        if os.path.exists(args.metadata) == False:
-            print "This path is not exists." + args.metadata
-            return
-      
-        if len(args.check_result) > 0 and os.path.exists(args.check_result) == False:
-            print "This path is not exists." + args.check_result
-            return
-            
-        if os.path.exists(args.bam_dir) == False:
-            print "This path is not exists." + args.bam_dir
-            return
+    if os.path.exists(metadata) == False:
+        print ("path is not exists. [metadata] " + metadata)
+        return
+  
+    if len(check_result) > 0 and os.path.exists(check_result) == False:
+        print ("path is not exists. [check_result] " + check_result)
+        return
+    
+    if subcode.path_check(bam_dir, config) == False:
+        print ("path is not exists. [bam_dir] " + bam_dir)
+        return
     
     # get path    
-    bam_dir = os.path.abspath(args.bam_dir)
+    bam_dir = os.path.abspath(bam_dir)
     
-    output_file = os.path.abspath(args.output_file)
+    output_file = os.path.abspath(output_file)
     if os.path.splitext(output_file)[1].lower() != ".csv":
-        print "Input output file path with format NAME.csv"
+        print ("Input output file path with format NAME.csv")
         return
 
     if os.path.exists(os.path.dirname(output_file)) == False:
         os.makedirs(os.path.dirname(output_file))
         
     # read metadata
-    if _is_debug(config):
-        loaded = subcode.load_metadata(args.metadata, check_result=args.check_result)
-    else:
-        loaded = subcode.load_metadata(args.metadata, bam_dir=bam_dir, check_result=args.check_result)
+    loaded = subcode.load_metadata(metadata, bam_dir=bam_dir, config=config, check_result=check_result)
+
+    for row in loaded["invalid"]:
+        print (skip_template.format(id = row[0], reason = row[1]))
         
     data_org = subcode.json_to_pandas(loaded["data"])
-    for row in loaded["invalid"]:
-        print skip_template.format(id = row[0], reason = row[1])
         
     # multiple diseases?
-    di1 = data_org.sort(["disease"])
+    di1 = data_org.sort_values(by=["disease"])
     di2 = di1["disease"][(di1["disease"].duplicated() == False)]
     if (len(di2) > 1):
         print ("WARNING!!! Mixture of diseases.")
@@ -116,7 +122,7 @@ def main():
         data_tmp = pandas.concat([add_sample, data_org], axis=1)
     
     # sort
-    data = data_tmp.sort(columns=["person", "published", "modified"], ascending=[1, 0, 0])
+    data = data_tmp.sort_values(by=["person", "published", "modified"], ascending=[1, 0, 0])
     
     # get tumor-normal pair
     person_list = data["person"][(data["person"].duplicated() == False)]
@@ -133,7 +139,7 @@ def main():
         
         for j in range(len(one)):
             
-            sample_type = one.iloc[j]["sample_type_name"]
+            sample_type = one.iloc[j]["sample_type_id"]
 
             # apply barcode duplicate
             if sample_type >= 1 and sample_type <= 9:
@@ -159,9 +165,9 @@ def main():
     f.close()
 
     # make control_panel
-    t1 = tumor_list.sort(["sample"])
+    t1 = tumor_list.sort_values(by=["sample"])
     t2 = t1["sample"][(t1["sample"].duplicated() == False)]
-    n1 = normal_list.sort(["sample"])
+    n1 = normal_list.sort_values(by=["sample"])
     n2 = n1["sample"][(n1["sample"].duplicated() == False)]
     if (len(t2) != len(n2)):
         print ("ERROR!!! It is not match normal sample's number and tumor's.")
@@ -198,7 +204,7 @@ def main():
     f.write(contrlpanel_totext(n2, control))
     f.close()
     
-    print "written sample sheet. %d persons." % len(t2)
+    print ("written sample sheet. %d persons." % len(t2))
     
 def pairlist_totext(tumor_list, normal_list, control):
     text = ""
@@ -259,7 +265,7 @@ def bamlist_totext(bam_list, bam_dir, config):
         bam_path = bam_template.format(bam_dir = bam_dir, 
                     analysis = bam_list.iloc[i]["analysis_id"], file_name = bam_list.iloc[i]["filename"])
 
-        if os.path.exists(bam_path) == False and _is_debug(config) == False:
+        if subcode.path_check(bam_path, config) == False:
             print ("ERROR!!! This bam path is not exists.[" + bam_path + "], \nplease check arg bam_dir.")
             return text
 
@@ -381,16 +387,42 @@ def _split_list(leng, size):
         cols[i] += 1
 
     return cols
-
-def _is_debug(config):
-    
-    debug = False
-    if config.has_option("MAIN", "debug_mode") == True:
-        debug = config.getboolean("MAIN", "debug_mode")
-    
-    return debug
     
 if __name__ == "__main__":
 
     main()
-  
+    
+#    create_samplesheet("GDCPortal/projects/TCGA-ACC.json" , "/", "sample_sheets/ACC.csv" , "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-BLCA.json", "/", "sample_sheets/BLCA.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-BRCA.json", "/", "sample_sheets/BRCA.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-CESC.json", "/", "sample_sheets/CESC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-CHOL.json", "/", "sample_sheets/CHOL.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-COAD.json", "/", "sample_sheets/COAD.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-DLBC.json", "/", "sample_sheets/DLBC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-ESCA.json", "/", "sample_sheets/ESCA.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-GBM.json" , "/", "sample_sheets/GBM.csv" , "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-HNSC.json", "/", "sample_sheets/HNSC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-KICH.json", "/", "sample_sheets/KICH.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-KIRC.json", "/", "sample_sheets/KIRC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-KIRP.json", "/", "sample_sheets/KIRP.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-LAML.json", "/", "sample_sheets/LAML.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-LGG.json" , "/", "sample_sheets/LGG.csv" , "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-LIHC.json", "/", "sample_sheets/LIHC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-LUAD.json", "/", "sample_sheets/LUAD.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-LUSC.json", "/", "sample_sheets/LUSC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-MESO.json", "/", "sample_sheets/MESO.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-OV.json"  , "/", "sample_sheets/OV.csv"  , "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-PAAD.json", "/", "sample_sheets/PAAD.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-PCPG.json", "/", "sample_sheets/PCPG.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-PRAD.json", "/", "sample_sheets/PRAD.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-READ.json", "/", "sample_sheets/READ.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-SARC.json", "/", "sample_sheets/SARC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-SKCM.json", "/", "sample_sheets/SKCM.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-STAD.json", "/", "sample_sheets/STAD.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-TGCT.json", "/", "sample_sheets/TGCT.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-THCA.json", "/", "sample_sheets/THCA.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-THYM.json", "/", "sample_sheets/THYM.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-UCEC.json", "/", "sample_sheets/UCEC.csv", "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-UCS.json" , "/", "sample_sheets/UCS.csv" , "", "./create_samplesheet.cfg")
+#    create_samplesheet("GDCPortal/projects/TCGA-UVM.json" , "/", "sample_sheets/UVM.csv" , "", "./create_samplesheet.cfg")
+

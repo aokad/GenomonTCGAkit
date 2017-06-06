@@ -6,6 +6,9 @@
 
 上から順に実行されることを想定していますが、単独でも動作可能です。
 
+必要なもの
+numpy
+
  1. <s>split_summary.py    ............ summary.tsvとmanifest.xmlを分割します。</s>
  2. <s>gt_surveillance.py  ............ bamをダウンロードします。</s>
  3. check_bam.py      ........ ダウンロードしたbamをテストします。
