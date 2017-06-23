@@ -197,5 +197,4 @@ if __name__ == "__main__":
     pass
     
     #view1(["metadata.all_p1.json","metadata.all_p2.json","metadata.all_p3.json"])
-    view2(["metadata.all_p1.json","metadata.all_p2.json","metadata.all_p3.json"], "./barcodes.csv")
-    
+    #view2(["metadata.all_p1.json","metadata.all_p2.json","metadata.all_p3.json"], "./barcodes.csv")

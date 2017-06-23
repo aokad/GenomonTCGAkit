@@ -44,14 +44,10 @@ hostname                # print hostname
 date                    # print date
 set -xv
 
-export PYTHONHOME=/usr/local/package/python/current2.7
-export PATH=${PYTHONHOME}/bin:${PATH}
-export LD_LIBRARY_PATH=${PYTHONHOME}/lib:${LD_LIBRARY_PATH}
-
 echo {analysis_id} > {out}
 
-python ./mdtest.py {bam} {md5}
-echo `expr $?` >> {out}
+echo {md5} >> {out}
+md5sum {bam} >> {out}
 
 total_l=`{samtools} view {bam} | wc -l`
 echo `expr $total_l` >> {out}
@@ -79,7 +75,7 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
 
     s = drmaa.Session()
 
-    return_val = 0
+    return_val = -1
     retry_max = config.getint('JOB_CONTROL', 'retry_max')
     for i in range(retry_max):
         
@@ -119,7 +115,7 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
         s.exit()
 
         if err == False:
-            return_val = -1
+            return_val = 0
             break
         
     subcode.write_log(log_path, "a", name + ": Subprocess has been finished: " + str(return_val), True, True)
@@ -127,21 +123,21 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
     return return_val
    
 def main():
-    name = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+    prog = os.path.splitext(os.path.basename(sys.argv[0]))[0]
     
     # get args
-    parser = argparse.ArgumentParser(prog = name)
+    parser = argparse.ArgumentParser(prog = prog)
     
-    parser.add_argument("--version", action = "version", version = name + rev)
+    parser.add_argument("--version", action = "version", version = prog + rev)
     
     parser.add_argument('metadata', help = "metdata-file(.json) downloaded from TCGA", type = str)
     parser.add_argument('bam_dir', help = "bam downloaded directory", type = str)
     parser.add_argument('output_dir', help = "output root directory", type = str)
-    parser.add_argument('project', help = "project name (ACC, BLCA, etc)", type = str)
+    # parser.add_argument('project', help = "project name (ACC, BLCA, etc)", type = str)
 
     parser.add_argument("--config_file", help = "config file", type = str, default = "")
     args = parser.parse_args()
-
+    
     output_dir = os.path.abspath(args.output_dir)
     metadata = os.path.abspath(args.metadata)
     bam_dir = os.path.abspath(args.bam_dir)
@@ -165,7 +161,7 @@ def main():
     if (os.path.exists(output_dir + "/scripts") == False):
         os.makedirs(output_dir + "/scripts")
     
-    this_name = "check_bam_%s_%s" % (args.project, subcode.date_str())
+    this_name = "%s_%s" % (prog, subcode.date_str())
     log_path = output_dir + "/log/%s.log" % this_name
     subcode.write_log(log_path, "w", "Start main process.", True, True)
 
@@ -177,9 +173,9 @@ def main():
     
     result_path = output_dir + "/result/result_%s.csv" % this_name
     f = open(result_path, "w")
-    f.write("analysis_id,result,md5_check,total_lines,single_lines\n")
+    f.write("result,analysis_id,md5_reference,md5_target,total_lines,single_lines,single_rate\n")
     for row in loaded["invalid"]:
-        f.write("%s,%s,,,\n" % (row[0], row[1]))
+        f.write("%s,%s,,,,,\n" % (row[1], row[0]))
     f.close()
     
     # loop for job start
@@ -202,9 +198,9 @@ def main():
             if j >= len(data):
                 break
                 
-            name = "%s_%05d_%s" % (args.project, j+1, subcode.date_str())
+            name = "%s_%05d_%s" % (prog, j+1, subcode.date_str())
 
-            bam = bam_dir + "/" + data[j]["file_id"] + "/" + data[j]["filename"]
+            bam = bam_dir + "/" + data[j]["file_id"] + "/" + data[j]["file_name"]
             
             process = Process(target=qsub_process, name=name, args=(name, output_dir, bam, data[j]["file_id"], data[j]["md5sum"], config))
             process.daemon == True
@@ -242,19 +238,20 @@ def main():
         f_result.close()
         lines = pres.split("\n")
         f = open(result_path, "a")
-        if len(lines) >= 4:
+        if len(lines) >= 5:
             os.remove(output_dir + '/result/' + process.name + ".txt")
             result = "0K"
-            if int(lines[1]) != 0:
+            bam_alt = lines[2].split(" ")[0]
+            if lines[1] != bam_alt:
                 result = "unmatch checksum"
-            elif int(lines[2]) < th_read_total:
+            elif int(lines[3]) < th_read_total:
                 result = "too few reads"
-            elif float(lines[3]) / float(lines[2]) > th_single_rate:
+            elif float(lines[4]) / float(lines[3]) > th_single_rate:
                 result = "single read"
-            f.write("%s,%s,%s,%s,%s\n" % (lines[0], result, lines[1], lines[2], lines[3]))
+            f.write("%s,%s,%s,%s,%s,%s,%0.3f\n" % (result, lines[0], lines[1], bam_alt, lines[3], lines[4], (float(lines[4]) / float(lines[3]))))
             
         else:
-            f.write("%s,check_error,,,\n" % (lines[0]))
+            f.write("check_error,%s,,,,,\n" % (lines[0]))
         
         f.close()    
 
