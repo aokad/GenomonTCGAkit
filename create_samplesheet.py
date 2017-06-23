@@ -106,9 +106,10 @@ def create_samplesheet(metadata, bam_dir, output_file, check_result, config_file
     col_person = []
     for i in range(len(data_org)):
         split = data_org["barcode"][i].split("-")
-        col_sample.append("%s-%s-%s-%s" % (split[0], split[1], split[2], split[3][0:2]))
+        #col_sample.append("%s-%s-%s-%s" % (split[0], split[1], split[2], split[3][0:2]))
+        col_sample.append("%s-%s-%s-%s" % (split[0], split[1], split[2], split[3]))
         col_person.append("%s-%s-%s" % (split[0], split[1], split[2]))
-    
+        
     if ("sample" in data_org.columns) == False:
         add_sample = pandas.DataFrame([col_sample]).T
         add_sample.columns =["sample"]            
@@ -122,7 +123,7 @@ def create_samplesheet(metadata, bam_dir, output_file, check_result, config_file
         data_tmp = pandas.concat([add_sample, data_org], axis=1)
     
     # sort
-    data = data_tmp.sort_values(by=["person", "published", "modified"], ascending=[1, 0, 0])
+    data = data_tmp.sort_values(by=["person", "updated"], ascending=[1, 0])
     
     # get tumor-normal pair
     person_list = data["person"][(data["person"].duplicated() == False)]
@@ -390,14 +391,14 @@ def _split_list(leng, size):
     
 if __name__ == "__main__":
 
-    main()
+#    main()
     
 #    create_samplesheet("GDCPortal/projects/TCGA-ACC.json" , "/", "sample_sheets/ACC.csv" , "", "./create_samplesheet.cfg")
 #    create_samplesheet("GDCPortal/projects/TCGA-BLCA.json", "/", "sample_sheets/BLCA.csv", "", "./create_samplesheet.cfg")
 #    create_samplesheet("GDCPortal/projects/TCGA-BRCA.json", "/", "sample_sheets/BRCA.csv", "", "./create_samplesheet.cfg")
 #    create_samplesheet("GDCPortal/projects/TCGA-CESC.json", "/", "sample_sheets/CESC.csv", "", "./create_samplesheet.cfg")
 #    create_samplesheet("GDCPortal/projects/TCGA-CHOL.json", "/", "sample_sheets/CHOL.csv", "", "./create_samplesheet.cfg")
-#    create_samplesheet("GDCPortal/projects/TCGA-COAD.json", "/", "sample_sheets/COAD.csv", "", "./create_samplesheet.cfg")
+    create_samplesheet("GDCPortal/projects/TCGA-COAD.json", "/", "sample_sheets/COAD3.csv", "", "./create_samplesheet.cfg")
 #    create_samplesheet("GDCPortal/projects/TCGA-DLBC.json", "/", "sample_sheets/DLBC.csv", "", "./create_samplesheet.cfg")
 #    create_samplesheet("GDCPortal/projects/TCGA-ESCA.json", "/", "sample_sheets/ESCA.csv", "", "./create_samplesheet.cfg")
 #    create_samplesheet("GDCPortal/projects/TCGA-GBM.json" , "/", "sample_sheets/GBM.csv" , "", "./create_samplesheet.cfg")
