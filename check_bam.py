@@ -47,13 +47,22 @@ set -xv
 echo {analysis_id} > {out}
 
 echo {md5} >> {out}
-md5sum {bam} >> {out}
+md5=`md5sum {bam} | cut -f 1 -d " "`
+echo $md5 >> {out}
 
-total_l=`{samtools} view {bam} | wc -l`
-echo `expr $total_l` >> {out}
+if test "{md5}" = $md5; then
 
-single_l=`{samtools} view -F 1 {bam} | wc -l`
-echo `expr $single_l` >> {out}
+  total_l=`{samtools} view {bam} | wc -l`
+  echo `expr $total_l` >> {out}
+
+  single_l=`{samtools} view -F 1 {bam} | wc -l`
+  echo `expr $single_l` >> {out}
+
+else
+  echo -1 >> {out}
+  echo -1 >> {out}
+fi
+ 
 """
 
 def qsub_process(name, output_dir, bam, analysis_id, md5, config):
@@ -181,7 +190,7 @@ def main():
     # loop for job start
     max_once_jobs = config.getint('JOB_CONTROL', 'max_once_jobs')
     max_all_jobs = max_once_jobs * 2
-    interval = config.getint('JOB_CONTROL', 'interval')
+    interval = float(config.getint('JOB_CONTROL', 'interval'))/1000.0
     
     j = 0
     while j < len(data):
@@ -211,7 +220,7 @@ def main():
             process_list.append(process)
             j += 1
         
-        time.sleep(interval)
+            time.sleep(interval)
 
     # summarize logs and results  
     th_read_total = 0
@@ -222,7 +231,6 @@ def main():
     if config.has_option("CHECKBAM", "single_rate"):
         th_read_total = config.getfloat("CHECKBAM", "single_rate")
         
-    config.getint('JOB_CONTROL', 'interval')  
     for process in process_list:
         process.join()
 
@@ -240,7 +248,7 @@ def main():
         f = open(result_path, "a")
         if len(lines) >= 5:
             os.remove(output_dir + '/result/' + process.name + ".txt")
-            result = "0K"
+            result = "OK"
             bam_alt = lines[2].split(" ")[0]
             if lines[1] != bam_alt:
                 result = "unmatch checksum"

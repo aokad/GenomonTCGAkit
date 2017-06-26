@@ -8,28 +8,32 @@
 
  1. check_bam.py      ........ ダウンロードしたbamをテストします。
  2. create_samplesheet.py       .... genomonで使用するsample sheetを作成します。
- 
+
+実行に必要なもの
+
+ - python 2.7.x
+ - Genomic Data Commons - Data Portalからダウンロードしたbamファイル
+ - metadata.json ファイル（bamファイルをダウンロードする時、合わせて取得してください）
+
 詳細は wiki [https://github.com/aokad/GenomonToolkit/wiki](https://github.com/aokad/GenomonToolkit/wiki) 参照
 
 # check_bam.py
 
-実行に必要なもの
+Genomic Data Commons - Data Portalからダウンロードしたbamファイルをテストします。
+
+実行環境
 
  - python 2.7.x
  - samtools (samtools view が必要)
  - drmaa (DRMAA_LIBRARY_PATHの設定を忘れずに)
 
-Genomic Data Commons - Data Portalからダウンロードしたbamファイルをテストします。
-
-※bamファイルをダウンロードする際、metadata.json ファイルを合わせて取得してください。
-
 ## テスト内容
 
  - md5: チェックサムをメタデータと比較します。
  - リード数：総リード数とシングルリード比率が許容範囲か確認します。
- - メタデータ：メタデータの内容を確認します。
+ - メタデータ：メタデータの内容を確認します。 (analyte_type, experimental_strategy, platform)
 
-閾値やメタデータの確認内容はcheck_bam.cfgファイルを確認ください。
+閾値等設定内容詳細はcheck_bam.cfgファイルを確認ください。
 
 ## インストール方法
 
@@ -78,8 +82,8 @@ bamのディレクトリは以下ルートパスを指定してください。
 
 metadata.jsonを基準にチェックしますので、metadata.jsonとbamのディレクトリに存在するbamファイルは同じ構成（数）であることが望ましいです。
 
- - metadata.jsonに記述がないbamはチェックされません。
- - metadata.jsonに記述があるのに、実際にbamがないとチェック結果がエラーになります。（bamがないエラー）
+ - metadata.jsonにないbamはチェックされません。
+ - metadata.jsonにあるのに、実際にbamがないとチェック結果がエラーになります。（bamがないエラー）
 
 ## チェック結果
 
@@ -106,7 +110,7 @@ NGの例
  - "unmatch checksum"....チェックサム不一致
  - "too few reads".......総リード数が少なすぎる
  - "single read".........シングルリード率が高すぎる
- - "{その他}"............メタデータの不一致
+ - "{その他}"............メタデータの不一致 (analyte_type, experimental_strategy, platform)
 
 # create_samplesheet.py
 
