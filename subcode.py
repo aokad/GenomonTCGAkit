@@ -9,6 +9,7 @@ $Id: subcode.py 120 2016-01-08 04:44:28Z aokada $
 $Rev: 120 $
 """
 
+# ファイルがあるかチェック
 def path_check(path, config):
     
     if config != None and config.has_option("MAIN", "path_check"):
@@ -17,12 +18,20 @@ def path_check(path, config):
     
     import os
     return os.path.exists(path)
-        
+
+# 現在時刻で文字列を作る (yyyy/mm/dd_HH/MM/SS)
 def date_str():
     import datetime
     now = datetime.datetime.now()
     return "%04d%02d%02d_%02d%02d%02d" % (now.year, now.month, now.day, now.hour, now.minute, now.second)
-    
+
+# ログファイル書き込み
+#   path    ログファイルのパス
+#   mode    ファイルオープンモード("w","a")
+#   text    出力したい文字列
+#   date    (True/False) Trueの時は現在時刻を先頭につける
+#   printer (True/False) Trueの時はコンソールにも出力する
+
 def write_log(path, mode, text, date, printer):
     import datetime
     
@@ -39,20 +48,37 @@ def write_log(path, mode, text, date, printer):
     if printer == True:
         print (t + text)
 
+# configのメタデータ設定値と一致するかチェック
+#   config ConfigParser
+#   option configのオプション、sectionはMETADATA固定
+#   value  現在の値
+
 def conf_match(config, option, value):
+
+    # 設定項目がない場合はTrueで返す
     if config == None:
         return True
     if not config.has_option("METADATA", option):
         return True
     if config.get("METADATA", option) == "":
         return True
+    
+    # 設定値が複数ある場合は,で区切って入力してある
+    # どれか一つと一致すればTrueで返す
     if value in config.get('METADATA', option).split(","):
         return True
+    
+    # 設定値がちゃんと設定してあり、一致しない場合のみFalseで返す
     return False
+
+# metaデータを読み込む
+# このとき、チェックリストやチェック項目を合わせみる
+# OKのものは"data"で、NGのものは"invalid"で返す
 
 def load_metadata(metadata, bam_dir=None, config=None, check_result=""):
     import json
     
+    # チェックリストNGのbamリストを作成
     black = []
     reasons = []
     if check_result != "":
@@ -64,24 +90,32 @@ def load_metadata(metadata, bam_dir=None, config=None, check_result=""):
                 reasons.append(cells[1])
         f.close()
 
-    # print (black)
     read_data = json.load(open(metadata))
     data = []
     invalid = []
     for obj in read_data:
         analysis_id = obj["file_id"]
+        
+        # metadata 不一致
         if not conf_match(config, 'analyte_type', obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]):
-            invalid.append([analysis_id, obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]])
+            invalid.append([analysis_id, "analyte_type:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]])
+            continue
+        if not conf_match(config, 'is_ffpe', obj["cases"][0]["samples"][0]["is_ffpe"]):
+            invalid.append([analysis_id, "is_ffpe:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]]))
             continue
         if not conf_match(config, 'experimental_strategy', obj["experimental_strategy"]):
-            invalid.append([analysis_id, obj["experimental_strategy"]])
+            invalid.append([analysis_id, "experimental_strategy:%s" % (obj["experimental_strategy"]]))
             continue
         if not conf_match(config, 'platform', obj["platform"]):
-            invalid.append([analysis_id, obj["platform"]])
+            invalid.append([analysis_id, "platform:%s" % (obj["platform"]]))
             continue
+
+        # ファイルが存在しない
         if path_check(bam_dir + "/" + analysis_id + "/" + obj["file_name"], config) == False:
             invalid.append([analysis_id, "not exist bam"])
             continue
+        
+        # チェックリストNGのものは除外
         if analysis_id in black:
             invalid.append([analysis_id, reasons[black.index(analysis_id)]])
             continue
