@@ -5,11 +5,11 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Common functions
 @author: okada
 
-$Id: subcode.py 120 2016-01-08 04:44:28Z aokada $
-$Rev: 120 $
+$Id: subcode.py 179 2017-07-04 03:15:59Z aokada $
+$Rev: 179 $
 """
 
-# ƒtƒ@ƒCƒ‹‚ª‚ ‚é‚©ƒ`ƒFƒbƒN
+# ãƒ•ã‚¡ã‚¤ãƒ«ãŒã‚ã‚‹ã‹ãƒã‚§ãƒƒã‚¯
 def path_check(path, config):
     
     if config != None and config.has_option("MAIN", "path_check"):
@@ -19,18 +19,18 @@ def path_check(path, config):
     import os
     return os.path.exists(path)
 
-# Œ»İ‚Å•¶š—ñ‚ğì‚é (yyyy/mm/dd_HH/MM/SS)
+# ç¾åœ¨æ™‚åˆ»ã§æ–‡å­—åˆ—ã‚’ä½œã‚‹ (yyyy/mm/dd_HH/MM/SS)
 def date_str():
     import datetime
     now = datetime.datetime.now()
     return "%04d%02d%02d_%02d%02d%02d" % (now.year, now.month, now.day, now.hour, now.minute, now.second)
 
-# ƒƒOƒtƒ@ƒCƒ‹‘‚«‚İ
-#   path    ƒƒOƒtƒ@ƒCƒ‹‚ÌƒpƒX
-#   mode    ƒtƒ@ƒCƒ‹ƒI[ƒvƒ“ƒ‚[ƒh("w","a")
-#   text    o—Í‚µ‚½‚¢•¶š—ñ
-#   date    (True/False) True‚Ì‚ÍŒ»İ‚ğæ“ª‚É‚Â‚¯‚é
-#   printer (True/False) True‚Ì‚ÍƒRƒ“ƒ\[ƒ‹‚É‚ào—Í‚·‚é
+# ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«æ›¸ãè¾¼ã¿
+#   path    ãƒ­ã‚°ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ‘ã‚¹
+#   mode    ãƒ•ã‚¡ã‚¤ãƒ«ã‚ªãƒ¼ãƒ—ãƒ³ãƒ¢ãƒ¼ãƒ‰("w","a")
+#   text    å‡ºåŠ›ã—ãŸã„æ–‡å­—åˆ—
+#   date    (True/False) Trueã®æ™‚ã¯ç¾åœ¨æ™‚åˆ»ã‚’å…ˆé ­ã«ã¤ã‘ã‚‹
+#   printer (True/False) Trueã®æ™‚ã¯ã‚³ãƒ³ã‚½ãƒ¼ãƒ«ã«ã‚‚å‡ºåŠ›ã™ã‚‹
 
 def write_log(path, mode, text, date, printer):
     import datetime
@@ -48,14 +48,14 @@ def write_log(path, mode, text, date, printer):
     if printer == True:
         print (t + text)
 
-# config‚Ìƒƒ^ƒf[ƒ^İ’è’l‚Æˆê’v‚·‚é‚©ƒ`ƒFƒbƒN
+# configã®ãƒ¡ã‚¿ãƒ‡ãƒ¼ã‚¿è¨­å®šå€¤ã¨ä¸€è‡´ã™ã‚‹ã‹ãƒã‚§ãƒƒã‚¯
 #   config ConfigParser
-#   option config‚ÌƒIƒvƒVƒ‡ƒ“Asection‚ÍMETADATAŒÅ’è
-#   value  Œ»İ‚Ì’l
+#   option configã®ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã€sectionã¯METADATAå›ºå®š
+#   value  ç¾åœ¨ã®å€¤
 
 def conf_match(config, option, value):
 
-    # İ’è€–Ú‚ª‚È‚¢ê‡‚ÍTrue‚Å•Ô‚·
+    # è¨­å®šé …ç›®ãŒãªã„å ´åˆã¯Trueã§è¿”ã™
     if config == None:
         return True
     if not config.has_option("METADATA", option):
@@ -63,22 +63,22 @@ def conf_match(config, option, value):
     if config.get("METADATA", option) == "":
         return True
     
-    # İ’è’l‚ª•¡”‚ ‚éê‡‚Í,‚Å‹æØ‚Á‚Ä“ü—Í‚µ‚Ä‚ ‚é
-    # ‚Ç‚ê‚©ˆê‚Â‚Æˆê’v‚·‚ê‚ÎTrue‚Å•Ô‚·
+    # è¨­å®šå€¤ãŒè¤‡æ•°ã‚ã‚‹å ´åˆã¯,ã§åŒºåˆ‡ã£ã¦å…¥åŠ›ã—ã¦ã‚ã‚‹
+    # ã©ã‚Œã‹ä¸€ã¤ã¨ä¸€è‡´ã™ã‚Œã°Trueã§è¿”ã™
     if value in config.get('METADATA', option).split(","):
         return True
     
-    # İ’è’l‚ª‚¿‚á‚ñ‚Æİ’è‚µ‚Ä‚ ‚èAˆê’v‚µ‚È‚¢ê‡‚Ì‚İFalse‚Å•Ô‚·
+    # è¨­å®šå€¤ãŒã¡ã‚ƒã‚“ã¨è¨­å®šã—ã¦ã‚ã‚Šã€ä¸€è‡´ã—ãªã„å ´åˆã®ã¿Falseã§è¿”ã™
     return False
 
-# metaƒf[ƒ^‚ğ“Ç‚İ‚Ş
-# ‚±‚Ì‚Æ‚«Aƒ`ƒFƒbƒNƒŠƒXƒg‚âƒ`ƒFƒbƒN€–Ú‚ğ‡‚í‚¹‚İ‚é
-# OK‚Ì‚à‚Ì‚Í"data"‚ÅANG‚Ì‚à‚Ì‚Í"invalid"‚Å•Ô‚·
+# metaãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿è¾¼ã‚€
+# ã“ã®ã¨ãã€ãƒã‚§ãƒƒã‚¯ãƒªã‚¹ãƒˆã‚„ãƒã‚§ãƒƒã‚¯é …ç›®ã‚’åˆã‚ã›ã¿ã‚‹
+# OKã®ã‚‚ã®ã¯"data"ã§ã€NGã®ã‚‚ã®ã¯"invalid"ã§è¿”ã™
 
 def load_metadata(metadata, bam_dir=None, config=None, check_result=""):
     import json
     
-    # ƒ`ƒFƒbƒNƒŠƒXƒgNG‚ÌbamƒŠƒXƒg‚ğì¬
+    # ãƒã‚§ãƒƒã‚¯ãƒªã‚¹ãƒˆNGã®bamãƒªã‚¹ãƒˆã‚’ä½œæˆ
     black = []
     reasons = []
     if check_result != "":
@@ -96,26 +96,26 @@ def load_metadata(metadata, bam_dir=None, config=None, check_result=""):
     for obj in read_data:
         analysis_id = obj["file_id"]
         
-        # metadata •sˆê’v
+        # metadata ä¸ä¸€è‡´
         if not conf_match(config, 'analyte_type', obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]):
-            invalid.append([analysis_id, "analyte_type:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]])
+            invalid.append([analysis_id, "analyte_type:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]) ])
             continue
         if not conf_match(config, 'is_ffpe', obj["cases"][0]["samples"][0]["is_ffpe"]):
-            invalid.append([analysis_id, "is_ffpe:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]]))
+            invalid.append([analysis_id, "is_ffpe:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]) ])
             continue
         if not conf_match(config, 'experimental_strategy', obj["experimental_strategy"]):
-            invalid.append([analysis_id, "experimental_strategy:%s" % (obj["experimental_strategy"]]))
+            invalid.append([analysis_id, "experimental_strategy:%s" % (obj["experimental_strategy"]) ])
             continue
         if not conf_match(config, 'platform', obj["platform"]):
-            invalid.append([analysis_id, "platform:%s" % (obj["platform"]]))
+            invalid.append([analysis_id, "platform:%s" % (obj["platform"]) ])
             continue
 
-        # ƒtƒ@ƒCƒ‹‚ª‘¶İ‚µ‚È‚¢
+        # ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã—ãªã„
         if path_check(bam_dir + "/" + analysis_id + "/" + obj["file_name"], config) == False:
             invalid.append([analysis_id, "not exist bam"])
             continue
         
-        # ƒ`ƒFƒbƒNƒŠƒXƒgNG‚Ì‚à‚Ì‚ÍœŠO
+        # ãƒã‚§ãƒƒã‚¯ãƒªã‚¹ãƒˆNGã®ã‚‚ã®ã¯é™¤å¤–
         if analysis_id in black:
             invalid.append([analysis_id, reasons[black.index(analysis_id)]])
             continue
