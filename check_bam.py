@@ -5,8 +5,8 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Check script, BAM can be used with the genomon.
 @author: okada
 
-$Id: check_bam.py 169 2017-06-29 05:38:30Z aokada $
-$Rev: 169 $
+$Id: check_bam.py 180 2017-07-04 03:18:32Z aokada $
+$Rev: 180 $
 
 # before run
 @code
@@ -15,10 +15,10 @@ export DRMAA_LIBRARY_PATH=/geadmin/N1GE/lib/lx-amd64/libdrmaa.so.1.0
 
 # run
 @code
-check_bam.py {TCGA metadata.json} {path to bam dir} {path to output dir} {project name} --config_file {option: config file}
+check_bam.py {TCGA metadata.json} {path to bam dir} {path to output dir} --config_file {option: config file}
 @endcode
 """
-rev = " $Rev: 169 $"
+rev = " $Rev: 180 $"
 
 from multiprocessing import Process
 import time
