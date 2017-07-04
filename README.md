@@ -44,7 +44,7 @@ bamのディレクトリは以下bamダウンロード時のルートパスを�
 
 genomonで使用するsample sheetを作成します。
 
-詳細は wiki [https://github.com/aokad/GenomonToolkit/wiki/2.1_check_bam](https://github.com/aokad/GenomonToolkit/wiki/2.2_create_samplesheet) 参照
+詳細は wiki [https://github.com/aokad/GenomonToolkit/wiki/2.2_create_samplesheet](https://github.com/aokad/GenomonToolkit/wiki/2.2_create_samplesheet) 参照
 
 必要なもの
 
@@ -52,3 +52,4 @@ genomonで使用するsample sheetを作成します。
  - numpy
  - pandas
 
+(作業中)

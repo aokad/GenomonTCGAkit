@@ -5,8 +5,8 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Check script, BAM can be used with the genomon.
 @author: okada
 
-$Id: check_bam.py 120 2016-01-08 04:44:28Z aokada $
-$Rev: 120 $
+$Id: check_bam.py 169 2017-06-29 05:38:30Z aokada $
+$Rev: 169 $
 
 # before run
 @code
@@ -18,7 +18,7 @@ export DRMAA_LIBRARY_PATH=/geadmin/N1GE/lib/lx-amd64/libdrmaa.so.1.0
 check_bam.py {TCGA metadata.json} {path to bam dir} {path to output dir} {project name} --config_file {option: config file}
 @endcode
 """
-rev = " $Rev: 120 $"
+rev = " $Rev: 169 $"
 
 from multiprocessing import Process
 import time
@@ -130,8 +130,22 @@ def qsub_process(name, output_dir, bam, analysis_id, md5, config):
     subcode.write_log(log_path, "a", name + ": Subprocess has been finished: " + str(return_val), True, True)
 
     return return_val
-   
+
+def result_line (result, bam_path="", analysis_id="", md5_ref="", md5_alt="", read_total="", read_single="", read_rate=-1):
+    template = "{result},{bam_path},{analysis_id},{md5_ref},{md5_alt},{read_total},{read_single},{read_rate:.3f}\n"
+    
+    return template.format(
+                result = result, 
+                bam_path = bam_path, 
+                analysis_id = analysis_id, 
+                md5_ref = md5_ref, 
+                md5_alt = md5_alt, 
+                read_total = read_total, 
+                read_single = read_single, 
+                read_rate = read_rate
+            )
 def main():
+    
     prog = os.path.splitext(os.path.basename(sys.argv[0]))[0]
     
     # get args
@@ -182,9 +196,9 @@ def main():
     
     result_path = output_dir + "/result/result_%s.csv" % this_name
     f = open(result_path, "w")
-    f.write("result,analysis_id,md5_reference,md5_target,total_lines,single_lines,single_rate\n")
+    f.write("result,bam_path,analysis_id,md5_reference,md5_target,total_lines,single_lines,single_rate\n")
     for row in loaded["invalid"]:
-        f.write("%s,%s,,,,,\n" % (row[1], row[0]))
+        f.write(result_line( result = row[1], analysis_id = row[0] ))
     f.close()
     
     # loop for job start
@@ -246,24 +260,78 @@ def main():
         f_result.close()
         lines = pres.split("\n")
         f = open(result_path, "a")
+        
+        result = bam_path = analysis_id = md5_ref = md5_alt = read_total = read_single = ""
+        read_rate = -1
+            
         if len(lines) >= 5:
             os.remove(output_dir + '/result/' + process.name + ".txt")
-            result = "OK"
-            bam_alt = lines[2].split(" ")[0]
-            if lines[1] != bam_alt:
-                result = "unmatch checksum"
-            elif int(lines[3]) < th_read_total:
-                result = "too few reads"
-            elif float(lines[4]) / float(lines[3]) > th_single_rate:
-                result = "single read"
-            f.write("%s,%s,%s,%s,%s,%s,%0.3f\n" % (result, lines[0], lines[1], bam_alt, lines[3], lines[4], (float(lines[4]) / float(lines[3]))))
             
+            analysis_id = lines[0]
+            md5_ref = lines[1]
+            md5_alt = lines[2].split(" ")[0]
+            bam_path = lines[2].split(" ")[1]
+            read_total = lines[3]
+            read_single = lines[4] 
+            read_rate = float(lines[4]) / float(lines[3])            
+            
+            if md5_ref != md5_alt:
+                result = "unmatch checksum"
+            elif int(read_total) < th_read_total:
+                result = "too few reads"
+            elif read_rate > th_single_rate:
+                result = "single read"
+            else:
+                result = "OK"
         else:
-            f.write("check_error,%s,,,,,\n" % (lines[0]))
+            result = "check_error"
+            
+            if len(lines) == 4:
+                read_total = lines[3], 
+            if len(lines) >= 3:
+                md5_alt = lines[2].split(" ")[0]
+                bam_path = lines[2].split(" ")[1] 
+            if len(lines) >= 2:
+                md5_ref = lines[1]
+            if len(lines) >= 1:
+                analysis_id = lines[0]
+                
+        f.write(result_line(
+            result = result, 
+            bam_path = bam_path, 
+            analysis_id = analysis_id, 
+            md5_ref = md5_ref, 
+            md5_alt = md5_alt, 
+            read_total = read_total, 
+            read_single = read_single, 
+            read_rate = read_rate
+        ))
         
         f.close()    
 
     subcode.write_log(log_path, "a", "End main process.", True, True)
 
+def load_resultfile(result_file, choose_ok = True):
+    
+    if not os.path.exists(result_file):
+        print("not exists path: %s" % (result_file))
+        return None
+    
+    result = []
+    f = open(result_file)
+    for line in f.readline():
+        line = line.rstrip("\n")
+        items = line.split(",")
+        if len(items) >= 2:
+            if choose_ok == True and items[0] != "OK":
+                continue
+            if items[1] == "":
+                continue
+            
+            result.append({ "path": items[1], "result": items[0]})
+    
+    f.close()
+    return result
+    
 if __name__ == "__main__":
     main()
