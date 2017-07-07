@@ -5,8 +5,8 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Common functions
 @author: okada
 
-$Id: subcode.py 179 2017-07-04 03:15:59Z aokada $
-$Rev: 179 $
+$Id: subcode.py 196 2017-07-07 07:20:51Z aokada $
+$Rev: 196 $
 """
 
 # ファイルがあるかチェック
@@ -94,7 +94,13 @@ def load_metadata(metadata, bam_dir=None, config=None, check_result=""):
     data = []
     invalid = []
     for obj in read_data:
+    
         analysis_id = obj["file_id"]
+        
+        # ファイルが存在しない
+        if path_check(bam_dir + "/" + analysis_id + "/" + obj["file_name"], config) == False:
+            invalid.append([analysis_id, "not exist bam"])
+            continue
         
         # metadata 不一致
         if not conf_match(config, 'analyte_type', obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]):
@@ -110,15 +116,11 @@ def load_metadata(metadata, bam_dir=None, config=None, check_result=""):
             invalid.append([analysis_id, "platform:%s" % (obj["platform"]) ])
             continue
 
-        # ファイルが存在しない
-        if path_check(bam_dir + "/" + analysis_id + "/" + obj["file_name"], config) == False:
-            invalid.append([analysis_id, "not exist bam"])
-            continue
-        
         # チェックリストNGのものは除外
         if analysis_id in black:
             invalid.append([analysis_id, reasons[black.index(analysis_id)]])
             continue
+            
         data.append(obj)
     return {"data": data, "invalid": invalid}
 
