@@ -5,8 +5,8 @@ Created on Thu Nov 05 16:44:30 2015
 @brief:  Common functions
 @author: okada
 
-$Id: subcode.py 196 2017-07-07 07:20:51Z aokada $
-$Rev: 196 $
+$Id: subcode.py 199 2017-07-10 04:27:19Z aokada $
+$Rev: 199 $
 """
 
 # ファイルがあるかチェック
@@ -67,6 +67,13 @@ def conf_match(config, option, value):
     # どれか一つと一致すればTrueで返す
     if value in config.get('METADATA', option).split(","):
         return True
+   
+    # 設定値がboolean型の場合
+    try:
+        if value == config.getboolean('METADATA', option):
+            return True
+    except Exception:
+        pass
     
     # 設定値がちゃんと設定してあり、一致しない場合のみFalseで返す
     return False
@@ -107,7 +114,7 @@ def load_metadata(metadata, bam_dir=None, config=None, check_result=""):
             invalid.append([analysis_id, "analyte_type:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]) ])
             continue
         if not conf_match(config, 'is_ffpe', obj["cases"][0]["samples"][0]["is_ffpe"]):
-            invalid.append([analysis_id, "is_ffpe:%s" % (obj["cases"][0]["samples"][0]["portions"][0]["analytes"][0]["analyte_type"]) ])
+            invalid.append([analysis_id, "is_ffpe:%s" % (obj["cases"][0]["samples"][0]["is_ffpe"]) ])
             continue
         if not conf_match(config, 'experimental_strategy', obj["experimental_strategy"]):
             invalid.append([analysis_id, "experimental_strategy:%s" % (obj["experimental_strategy"]) ])
@@ -162,7 +169,7 @@ def json_to_pandas(jdata):
         ])
 
     pdata = pandas.DataFrame(tmp)
-    pdata.columns =["barcode", "disease", "sample_type", "sample_type_id", "filename", "analysis_id", "updated"]
+    pdata.columns = ["barcode", "disease", "sample_type", "sample_type_id", "filename", "analysis_id", "updated"]
 
     return pdata
 
